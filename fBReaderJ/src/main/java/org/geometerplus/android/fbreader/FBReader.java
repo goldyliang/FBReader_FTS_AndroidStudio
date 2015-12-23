@@ -302,6 +302,7 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 		}
 		myFBReaderApp.addAction(ActionCode.OPEN_WEB_HELP, new OpenWebHelpAction(this, myFBReaderApp));
 		myFBReaderApp.addAction(ActionCode.INSTALL_PLUGINS, new InstallPluginsAction(this, myFBReaderApp));
+		myFBReaderApp.addAction(ActionCode.FULL_TEXT_SEARCH, new FullTextSearchAction(this, myFBReaderApp));
 
 		final Intent intent = getIntent();
 		final String action = intent.getAction();
