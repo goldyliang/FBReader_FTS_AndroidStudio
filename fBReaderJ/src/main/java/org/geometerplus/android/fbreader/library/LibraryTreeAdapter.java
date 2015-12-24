@@ -57,12 +57,12 @@ class LibraryTreeAdapter extends TreeAdapter {
 			nameView.setText(tree.getName());
 		}
 
-		final TextView summaryView = ViewUtil.findTextView(view, R.id.library_tree_item_childrenlist);
+		/*final TextView summaryView = ViewUtil.findTextView(view, R.id.library_tree_item_childrenlist);
 		if (unread) {
 			summaryView.setText(Html.fromHtml("<b>" + tree.getSummary()));
 		} else {
 			summaryView.setText(tree.getSummary());
-		}
+		}*/
 
 		return view;
 	}

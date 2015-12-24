@@ -21,6 +21,7 @@ package org.geometerplus.fbreader.library;
 
 import java.util.*;
 
+import org.geometerplus.fbreader.egwbooks.EGWUtilities;
 import org.geometerplus.zlibrary.core.filesystem.ZLFile;
 import org.geometerplus.zlibrary.core.image.ZLImage;
 
@@ -52,12 +53,16 @@ public class FileTree extends LibraryTree {
 
 	@Override
 	public String getName() {
-		return myName != null ? myName : myFile.getShortName();
+		if (myName != null)
+			return myName;
+		else
+			return EGWUtilities.extractTitleFromFileName(myFile.getShortName());
 	}
 
 	@Override
 	public String getTreeTitle() {
-		return myFile.getPath();
+		// Get the foldername as the tree title
+		return EGWUtilities.extractTitleFromFileName(myFile.getShortName());
 	}
 
 	@Override

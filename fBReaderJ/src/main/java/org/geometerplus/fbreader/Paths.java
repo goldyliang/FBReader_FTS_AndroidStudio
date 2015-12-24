@@ -92,7 +92,7 @@ public abstract class Paths {
 	}
 
 	private static String defaultBookDirectory() {
-		return cardDirectory() + "/Books";
+		return cardDirectory() + "/Christian_books";
 	}
 
 	private static ZLStringListOption pathOption(String key, String defaultDirectory) {
