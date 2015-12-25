@@ -78,7 +78,9 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 	public static void openBookActivity(Context context, Book book, Bookmark bookmark) {
 		final Intent intent = new Intent(context, FBReader.class)
 			.setAction(FBReaderIntents.Action.VIEW)
-			.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+			//.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+			.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+
 		FBReaderIntents.putBookExtra(intent, book);
 		FBReaderIntents.putBookmarkExtra(intent, bookmark);
 		context.startActivity(intent);
@@ -447,6 +449,8 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 		((PopupPanel)myFBReaderApp.getPopupById(TextSearchPopup.ID)).setPanelInfo(this, myRootView);
 		((PopupPanel)myFBReaderApp.getPopupById(NavigationPopup.ID)).setPanelInfo(this, myRootView);
 		((PopupPanel)myFBReaderApp.getPopupById(SelectionPopup.ID)).setPanelInfo(this, myRootView);
+
+
 	}
 
 	@Override
@@ -960,6 +964,7 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 	@Override
 	public void close() {
 		finish();
+		//moveTaskToBack(false);
 	}
 
 	@Override

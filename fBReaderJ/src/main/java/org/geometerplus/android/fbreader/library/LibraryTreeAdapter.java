@@ -20,6 +20,7 @@
 package org.geometerplus.android.fbreader.library;
 
 import android.text.Html;
+import android.util.Log;
 import android.view.*;
 import android.widget.*;
 
@@ -47,15 +48,18 @@ class LibraryTreeAdapter extends TreeAdapter {
 		final View view = (convertView != null) ? convertView :
 			LayoutInflater.from(parent.getContext()).inflate(R.layout.library_tree_item, parent, false);
 
-		final boolean unread =
-			tree.getBook() != null && !tree.getBook().labels().contains(Book.READ_LABEL);
+		//final boolean unread =
+		//	tree.getBook() != null && !tree.getBook().labels().contains(Book.READ_LABEL);
 
 		final TextView nameView = ViewUtil.findTextView(view, R.id.library_tree_item_name);
-		if (unread) {
+		//if (unread) {
 			nameView.setText(Html.fromHtml("<b>" + tree.getName()));
-		} else {
-			nameView.setText(tree.getName());
-		}
+		//} else {
+		//	nameView.setText(tree.getName());
+		//}
+
+		//Log.v ("TREE", tree.getName());
+		//Log.v ("TREE", tree.getSummary());
 
 		/*final TextView summaryView = ViewUtil.findTextView(view, R.id.library_tree_item_childrenlist);
 		if (unread) {

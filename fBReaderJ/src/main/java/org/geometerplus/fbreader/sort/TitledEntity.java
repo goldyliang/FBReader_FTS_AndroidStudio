@@ -26,6 +26,8 @@ import java.util.Map;
 import android.annotation.TargetApi;
 import android.os.Build;
 
+import org.geometerplus.fbreader.egwbooks.EGWUtilities;
+
 public abstract class TitledEntity<T extends TitledEntity<T>> implements Comparable<T> {
 	private String myTitle;
 	private String mySortKey;
@@ -170,7 +172,7 @@ public abstract class TitledEntity<T extends TitledEntity<T>> implements Compara
 	}
 
 	public String firstTitleLetter() {
-		final String str = getSortKey();
+		final String str = EGWUtilities.extractTitleFromFileName(getSortKey());
 		if (str == null || "".equals(str)) {
 			return null;
 		}

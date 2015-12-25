@@ -19,6 +19,7 @@
 
 package org.geometerplus.fbreader.library;
 
+import org.geometerplus.fbreader.egwbooks.EGWUtilities;
 import org.geometerplus.zlibrary.core.image.ZLImage;
 
 import org.geometerplus.fbreader.book.*;
@@ -44,7 +45,7 @@ public class BookTree extends LibraryTree {
 
 	@Override
 	public String getName() {
-		return Book.getTitle();
+		return EGWUtilities.extractTitleFromFileName(Book.getTitle());
 	}
 
 	@Override

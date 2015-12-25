@@ -2,6 +2,8 @@ apply plugin: 'com.android.application'
 
 import org.apache.tools.ant.taskdefs.condition.Os
 
+
+
 android {
     compileSdkVersion 14
     buildToolsVersion "21.1.2"
@@ -10,6 +12,7 @@ android {
         applicationId "org.geometerplus.zlibrary.ui.android"
         minSdkVersion 5
         targetSdkVersion 9
+
 
         ndk {
             moduleName "DeflatingDecompressor-v3"

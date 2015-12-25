@@ -22,6 +22,7 @@ package org.geometerplus.zlibrary.core.filesystem;
 import java.io.*;
 import java.util.*;
 
+import org.geometerplus.fbreader.egwbooks.EGWUtilities;
 import org.geometerplus.zlibrary.core.drm.EncryptionMethod;
 import org.geometerplus.zlibrary.core.drm.FileEncryptionInfo;
 import org.geometerplus.zlibrary.core.drm.embedding.EmbeddingInputStream;

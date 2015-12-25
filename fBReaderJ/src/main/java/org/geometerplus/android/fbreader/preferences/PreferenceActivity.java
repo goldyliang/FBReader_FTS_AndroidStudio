@@ -24,6 +24,7 @@ import java.util.*;
 
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Environment;
 import android.view.KeyEvent;
 
 import org.geometerplus.zlibrary.core.application.ZLKeyBindings;
@@ -134,21 +135,22 @@ public class PreferenceActivity extends ZLPreferenceActivity {
 				});
 			}
 		};
-		directoriesScreen.addPreference(myChooserCollection.createPreference(
+
+/*		directoriesScreen.addPreference(myChooserCollection.createPreference(
 			directoriesScreen.Resource, "bookPath", Paths.BookPathOption, libraryUpdater
 		));
 		directoriesScreen.addPreference(myChooserCollection.createPreference(
 			directoriesScreen.Resource, "downloadDir", Paths.DownloadsDirectoryOption, libraryUpdater
-		));
+		)); */
 		final PreferenceSet fontReloader = new PreferenceSet.Reloader();
 		directoriesScreen.addPreference(myChooserCollection.createPreference(
 			directoriesScreen.Resource, "fontPath", Paths.FontPathOption, fontReloader
 		));
-		directoriesScreen.addPreference(myChooserCollection.createPreference(
+/*		directoriesScreen.addPreference(myChooserCollection.createPreference(
 			directoriesScreen.Resource, "tempDir", Paths.TempDirectoryOption, null
-		));
+		)); */
 
-		final Screen syncScreen = createPreferenceScreen("sync");
+		/*final Screen syncScreen = createPreferenceScreen("sync");
 		final PreferenceSet syncPreferences = new PreferenceSet.Enabler() {
 			@Override
 			protected Boolean detectState() {
@@ -233,9 +235,15 @@ public class PreferenceActivity extends ZLPreferenceActivity {
 		//syncPreferences.add(syncScreen.addOption(syncOptions.Metainfo, "metainfo", "values"));
 		//syncPreferences.add(syncScreen.addOption(syncOptions.Bookmarks, "bookmarks", "values"));
 		syncPreferences.run();
+		*/
 
 		final Screen appearanceScreen = createPreferenceScreen("appearance");
-		appearanceScreen.addPreference(new LanguagePreference(
+
+		final ZLStringOption languageOption = ZLResource.getLanguageOption();
+
+		languageOption.setValue("zh");
+
+		/*appearanceScreen.addPreference(new LanguagePreference(
 			this, appearanceScreen.Resource.getResource("language"), ZLResource.interfaceLanguages()
 		) {
 			@Override
@@ -254,10 +262,10 @@ public class PreferenceActivity extends ZLPreferenceActivity {
 					));
 				}
 			}
-		});
+		}); */
 		appearanceScreen.addPreference(new ZLStringChoicePreference(
-			this, appearanceScreen.Resource.getResource("screenOrientation"),
-			androidLibrary.getOrientationOption(), androidLibrary.allOrientations()
+				this, appearanceScreen.Resource.getResource("screenOrientation"),
+				androidLibrary.getOrientationOption(), androidLibrary.allOrientations()
 		));
 		appearanceScreen.addPreference(new ZLBooleanPreference(
 			this,
@@ -710,7 +718,7 @@ public class PreferenceActivity extends ZLPreferenceActivity {
 		imagesScreen.addOption(imageOptions.ImageViewBackground, "backgroundColor");
 		imagesScreen.addOption(imageOptions.MatchBackground, "matchBackground");
 
-		final CancelMenuHelper cancelMenuHelper = new CancelMenuHelper();
+		/*final CancelMenuHelper cancelMenuHelper = new CancelMenuHelper();
 		final Screen cancelMenuScreen = createPreferenceScreen("cancelMenu");
 		cancelMenuScreen.addOption(cancelMenuHelper.ShowLibraryItemOption, "library");
 		cancelMenuScreen.addOption(cancelMenuHelper.ShowNetworkLibraryItemOption, "networkLibrary");
@@ -731,7 +739,7 @@ public class PreferenceActivity extends ZLPreferenceActivity {
 		cancelMenuScreen.addPreference(new ZLStringChoicePreference(
 			this, cancelMenuScreen.Resource.getResource("backKeyLongPressAction"),
 			keyBindings.getOption(KeyEvent.KEYCODE_BACK, true), backKeyAndBackKeyLongPressActions
-		));
+		)); */
 
 		final Screen tipsScreen = createPreferenceScreen("tips");
 		tipsScreen.addOption(TipsManager.Instance().ShowTipsOption, "showTips");

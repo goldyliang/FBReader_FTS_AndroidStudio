@@ -30,6 +30,7 @@ import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.text.method.LinkMovementMethod;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.widget.*;
@@ -88,6 +89,9 @@ public class BookInfoActivity extends Activity implements IBookCollection.Listen
 		super.onStart();
 
 		OrientationUtil.setOrientation(this, getIntent());
+
+		Log.d("HERE HERE", "onStart()");
+
 
 		if (myBook != null) {
 			// we do force language & encoding detection

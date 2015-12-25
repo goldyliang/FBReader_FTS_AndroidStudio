@@ -21,6 +21,7 @@ package org.geometerplus.android.fbreader;
 
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.util.Log;
 
 import org.geometerplus.fbreader.fbreader.FBReaderApp;
 
@@ -54,6 +55,10 @@ class ShowLibraryAction extends FBAndroidAction {
 		if (Reader.Model != null) {
 			FBReaderIntents.putBookExtra(intent, Reader.getCurrentBook());
 		}
+
+		intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+
+		Log.d("HERE HERE", "startLibraryActivity" + intent.getAction());
 		OrientationUtil.startActivity(BaseActivity, intent);
 	}
 }

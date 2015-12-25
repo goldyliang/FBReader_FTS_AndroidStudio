@@ -24,12 +24,15 @@ import java.util.*;
 import android.app.AlertDialog;
 import android.app.SearchManager;
 import android.content.*;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.*;
 import android.widget.AdapterView;
 import android.widget.ListView;
 
+import org.geometerplus.zlibrary.core.filesystem.ZLFile;
 import org.geometerplus.zlibrary.core.options.ZLStringOption;
 import org.geometerplus.zlibrary.core.resources.ZLResource;
 
@@ -65,18 +68,78 @@ public class LibraryActivity extends TreeActivity<LibraryTree> implements MenuIt
 
 		deleteRootTree();
 
+		Log.d("HERE HERE" , "onCreate()");
+
 		myCollection.bindToService(this, new Runnable() {
 			public void run() {
 				setProgressBarIndeterminateVisibility(!myCollection.status().IsCompleted);
 				myRootTree = new RootTree(myCollection);
 				myCollection.addListener(LibraryActivity.this);
 				init(getIntent());
+
+//				Log.d("HERE HERE" , "bindToService()");
+//
+//				if (mySelectedBook != null) {
+//
+//					new AsyncTask <Object, Object, Object> () {
+//						@Override
+//						protected Object doInBackground(Object[] params) {
+//
+//
+//							for (FBTree firstLevel : myRootTree.subtrees())
+//								if (firstLevel instanceof FileTree) {
+//
+//									LibraryTree tree = (FileTree) firstLevel;
+//
+//									if (tree.hasChildren())
+//										Log.d("HERE HERE", "Has children");
+//
+//									while (tree == firstLevel || tree.containsBook(mySelectedBook)) {
+//										Log.d("HERE HERE", "Tree=" + tree.getName());
+//										List<FBTree> subTrees = tree.subtrees();
+//
+//										LibraryTree matchedTree = null;
+//										for (FBTree subTree : subTrees) {
+//											Log.d("HERE HERE", "Tree=" + subTree.getName());
+//											if (subTree instanceof LibraryTree) {
+//												LibraryTree lTree = (LibraryTree) subTree;
+//												if (lTree.containsBook(mySelectedBook))
+//													// Found a new level
+//													matchedTree = lTree;
+//											}
+//										}
+//
+//										if (matchedTree != null)
+//											tree = matchedTree;
+//										else {
+//											tree = myRootTree;
+//											break;
+//										}
+//									}
+//
+//									if (tree != myRootTree) {
+//										openTree(tree);
+//										break;
+//									}
+//								}
+//							return null;
+//						}
+//					}.execute();
+//				}
+
 			}
 		});
+
+
 	}
+
+
+
 
 	@Override
 	protected void onNewIntent(Intent intent) {
+		Log.d("HERE HERE", "onNewIntent" + intent.getAction());
+
 		if (START_SEARCH_ACTION.equals(intent.getAction())) {
 			final String pattern = intent.getStringExtra(SearchManager.QUERY);
 			if (pattern != null && pattern.length() > 0) {
@@ -100,6 +163,16 @@ public class LibraryActivity extends TreeActivity<LibraryTree> implements MenuIt
 		}
 	}
 
+
+	@Override
+	protected void onResume() {
+		super.onResume();
+		// Refresh the tree so as to update the selected book
+
+		if (getCurrentTree()!=null)
+			openTree (getCurrentTree ());
+	}
+
 	@Override
 	protected void onDestroy() {
 		deleteRootTree();
@@ -120,7 +193,9 @@ public class LibraryActivity extends TreeActivity<LibraryTree> implements MenuIt
 		} else {
 			final Book book = tree.getBook();
 			if (book != null) {
-				showBookInfo(book);
+				//showBookInfo(book);
+				mySelectedBook = book;
+				FBReader.openBookActivity(LibraryActivity.this, book, null);
 			} else {
 				openTree(tree);
 			}

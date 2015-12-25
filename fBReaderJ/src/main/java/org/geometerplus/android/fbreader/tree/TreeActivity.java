@@ -24,6 +24,7 @@ import java.util.*;
 import android.app.ListActivity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.*;
 
 import org.geometerplus.android.util.UIUtil;
@@ -80,6 +81,8 @@ public abstract class TreeActivity<T extends FBTree> extends ListActivity {
 
 	@Override
 	protected void onNewIntent(final Intent intent) {
+		Log.v("HERE HERE onNewIntent", "Intent:" + intent + "Extras:" + intent.getExtras());
+
 		OrientationUtil.setOrientation(this, intent);
 		if (OPEN_TREE_ACTION.equals(intent.getAction())) {
 			runOnUiThread(new Runnable() {
@@ -162,6 +165,82 @@ public abstract class TreeActivity<T extends FBTree> extends ListActivity {
 			default:
 				openTreeInternal(tree, treeToSelect, storeInHistory);
 				break;
+		}
+	}
+
+//	@Override
+//	protected void onSaveInstanceState (Bundle outState) {
+//
+//		super.onSaveInstanceState(outState);
+//
+//		outState.putSerializable(TREE_KEY_KEY, myCurrentKey);
+//		final TreeAdapter adapter = getListAdapter();
+//
+//		if (adapter.getFirstSelectedItem() != null)
+//			outState.putSerializable(SELECTED_TREE_KEY_KEY,
+//					adapter.getFirstSelectedItem().getUniqueKey());
+//
+//		Iterator <FBTree.Key> iter = myHistory.iterator();
+//		final ArrayList<FBTree.Key> history = new ArrayList <FBTree.Key> ();
+//
+//		while (iter.hasNext())
+//			history.add( iter.next());
+//
+//		if ( !history.isEmpty())
+//			outState.putSerializable(HISTORY_KEY, history);
+//
+//		Log.d("SAVE STATE" , outState.toString());
+//
+//	}
+//
+//	@Override
+//	protected void onRestoreInstanceState (Bundle savedInstanceState) {
+//
+//		super.onRestoreInstanceState(savedInstanceState);
+//
+//		Log.d("READ STATE" , savedInstanceState.toString());
+//
+//		final FBTree.Key key = (FBTree.Key)savedInstanceState.getSerializable(TREE_KEY_KEY);
+//		final FBTree.Key selectedKey = (FBTree.Key)savedInstanceState.getSerializable(SELECTED_TREE_KEY_KEY);
+//		myCurrentTree = getTreeByKey(key);
+//		myCurrentKey = myCurrentTree.getUniqueKey();
+//		final TreeAdapter adapter = getListAdapter();
+//		adapter.replaceAll(myCurrentTree.subtrees(), false);
+//		setTitle(myCurrentTree.getTreeTitle());
+//		final FBTree selectedTree =
+//				selectedKey != null ? getTreeByKey(selectedKey) : adapter.getFirstSelectedItem();
+//		final int index = adapter.getIndex(selectedTree);
+//		if (index != -1) {
+//			setSelection(index);
+//			getListView().post(new Runnable() {
+//				public void run() {
+//					setSelection(index);
+//				}
+//			});
+//		}
+//
+//		myHistory.clear();
+//		final ArrayList<FBTree.Key> history =
+//				(ArrayList<FBTree.Key>)savedInstanceState.getSerializable(HISTORY_KEY);
+//		if (history != null) {
+//			myHistory.addAll(history);
+//		}
+//		onCurrentTreeChanged();
+//	}
+
+	protected void setSelection (FBTree.Key selectedKey) {
+		final TreeAdapter adapter = getListAdapter();
+		final FBTree selectedTree =
+				selectedKey != null ? getTreeByKey(selectedKey) : adapter.getFirstSelectedItem();
+
+		final int index = adapter.getIndex(selectedTree);
+		if (index != -1) {
+			setSelection(index);
+			getListView().post(new Runnable() {
+				public void run() {
+					setSelection(index);
+				}
+			});
 		}
 	}
 

@@ -21,25 +21,53 @@ package org.geometerplus.fbreader.library;
 
 import java.util.List;
 
+import org.geometerplus.fbreader.Paths;
 import org.geometerplus.fbreader.book.IBookCollection;
 import org.geometerplus.fbreader.fbreader.options.SyncOptions;
 import org.geometerplus.fbreader.tree.FBTree;
+import org.geometerplus.zlibrary.core.filesystem.ZLFile;
+import org.geometerplus.zlibrary.core.resources.ZLResource;
 
 public class RootTree extends LibraryTree {
 	public RootTree(IBookCollection collection) {
 		super(collection);
 
+		for (String dir : Paths.BookPathOption.getValue()) {
+			addChild(dir, "fileTreeLibrary", dir);
+		}
+
 		//new ExternalViewTree(this);
 		new FavoritesTree(this);
 		new RecentBooksTree(this);
 		//new AuthorListTree(this);
-		new TitleListTree(this);
+		//new TitleListTree(this);
 		//new SeriesListTree(this);
 		//new TagListTree(this);
-		if (new SyncOptions().Enabled.getValue()) {
+		/*if (new SyncOptions().Enabled.getValue()) {
 			new SyncTree(this);
+		}*/
+
+
+
+		//new FileFirstLevelTree(this);
+	}
+
+	public void waitForOpening() {
+		clear();
+
+	}
+
+	private void addChild(String path, String resourceKey, String summary) {
+		final ZLFile file = ZLFile.createFileByPath(path);
+		if (file != null) {
+			final ZLResource resource = resource().getResource(resourceKey);
+			new FileTree(
+					this,
+					file,
+					resource.getValue(),
+					summary != null ? summary : resource.getResource("summary").getValue()
+			);
 		}
-		new FileFirstLevelTree(this);
 	}
 
 	public LibraryTree getLibraryTree(LibraryTree.Key key) {

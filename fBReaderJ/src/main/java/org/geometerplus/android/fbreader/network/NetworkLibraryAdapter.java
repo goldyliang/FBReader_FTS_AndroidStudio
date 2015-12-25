@@ -63,7 +63,7 @@ class NetworkLibraryAdapter extends TreeAdapter {
 		//ViewUtil.setSubviewText(view, R.id.library_tree_item_childrenlist, tree.getSummary());
 		setupCover(ViewUtil.findImageView(view, R.id.library_tree_item_icon), tree);
 
-		final ImageView statusView = ViewUtil.findImageView(view, R.id.library_tree_item_status);
+		/*final ImageView statusView = ViewUtil.findImageView(view, R.id.library_tree_item_status);
 		final int status = (tree instanceof NetworkBookTree)
 			? NetworkBookActions.getBookStatus(
 				((NetworkBookTree)tree).Book,
@@ -77,7 +77,7 @@ class NetworkLibraryAdapter extends TreeAdapter {
 		} else {
 			statusView.setVisibility(View.GONE);
 		}
-		statusView.requestLayout();
+		statusView.requestLayout();*/
 
 		return view;
 	}
