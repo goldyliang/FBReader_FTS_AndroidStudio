@@ -45,7 +45,7 @@ public class BookTree extends LibraryTree {
 
 	@Override
 	public String getName() {
-		return EGWUtilities.extractTitleFromFileName(Book.getTitle());
+		return Book.getTitle();
 	}
 
 	@Override
@@ -75,7 +75,7 @@ public class BookTree extends LibraryTree {
 
 	@Override
 	protected String getSortKey() {
-		return Book.getSortKey();
+		return Book.File.getShortName();// .getSortKey();
 	}
 
 	@Override

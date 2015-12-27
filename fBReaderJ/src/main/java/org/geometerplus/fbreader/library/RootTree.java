@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.geometerplus.fbreader.Paths;
 import org.geometerplus.fbreader.book.IBookCollection;
+import org.geometerplus.fbreader.egwbooks.EGWUtilities;
 import org.geometerplus.fbreader.fbreader.options.SyncOptions;
 import org.geometerplus.fbreader.tree.FBTree;
 import org.geometerplus.zlibrary.core.filesystem.ZLFile;
@@ -33,23 +34,24 @@ public class RootTree extends LibraryTree {
 		super(collection);
 
 		for (String dir : Paths.BookPathOption.getValue()) {
-			addChild(dir, "fileTreeLibrary", dir);
+			EGWUtilities.extractTitleFromPath (dir);
 		}
 
-		//new ExternalViewTree(this);
 		new FavoritesTree(this);
 		new RecentBooksTree(this);
+		new ExternalViewTree(this);
+
 		//new AuthorListTree(this);
 		//new TitleListTree(this);
-		//new SeriesListTree(this);
-		//new TagListTree(this);
-		/*if (new SyncOptions().Enabled.getValue()) {
+		new SeriesListTree(this);
+		new TagListTree(this);
+		if (new SyncOptions().Enabled.getValue()) {
 			new SyncTree(this);
-		}*/
+		}
 
 
 
-		//new FileFirstLevelTree(this);
+		new FileFirstLevelTree(this);
 	}
 
 	public void waitForOpening() {

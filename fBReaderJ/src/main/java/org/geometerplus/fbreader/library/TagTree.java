@@ -22,6 +22,7 @@ package org.geometerplus.fbreader.library;
 import java.util.List;
 
 import org.geometerplus.fbreader.book.*;
+import org.geometerplus.fbreader.egwbooks.EGWUtilities;
 
 public final class TagTree extends FilteredTree {
 	public final Tag Tag;
@@ -38,7 +39,8 @@ public final class TagTree extends FilteredTree {
 
 	@Override
 	public String getName() {
-		return Tag.NULL.equals(Tag) ? resource().getResource("booksWithNoTags").getValue() : Tag.Name;
+		return Tag.NULL.equals(Tag) ? resource().getResource("booksWithNoTags").getValue() :
+					EGWUtilities.extractTitleFromSortName(Tag.Name);
 	}
 
 	@Override

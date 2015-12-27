@@ -172,7 +172,7 @@ public abstract class TitledEntity<T extends TitledEntity<T>> implements Compara
 	}
 
 	public String firstTitleLetter() {
-		final String str = EGWUtilities.extractTitleFromFileName(getSortKey());
+		final String str = EGWUtilities.extractTitleFromSortName(getSortKey());
 		if (str == null || "".equals(str)) {
 			return null;
 		}

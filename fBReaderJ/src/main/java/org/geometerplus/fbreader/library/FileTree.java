@@ -56,13 +56,13 @@ public class FileTree extends LibraryTree {
 		if (myName != null)
 			return myName;
 		else
-			return EGWUtilities.extractTitleFromFileName(myFile.getShortName());
+			return myFile.getShortName();
 	}
 
 	@Override
 	public String getTreeTitle() {
 		// Get the foldername as the tree title
-		return EGWUtilities.extractTitleFromFileName(myFile.getShortName());
+		return myFile.getShortName();
 	}
 
 	@Override

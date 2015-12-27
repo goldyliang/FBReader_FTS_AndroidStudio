@@ -136,12 +136,12 @@ public class PreferenceActivity extends ZLPreferenceActivity {
 			}
 		};
 
-/*		directoriesScreen.addPreference(myChooserCollection.createPreference(
+		directoriesScreen.addPreference(myChooserCollection.createPreference(
 			directoriesScreen.Resource, "bookPath", Paths.BookPathOption, libraryUpdater
 		));
 		directoriesScreen.addPreference(myChooserCollection.createPreference(
 			directoriesScreen.Resource, "downloadDir", Paths.DownloadsDirectoryOption, libraryUpdater
-		)); */
+		));
 		final PreferenceSet fontReloader = new PreferenceSet.Reloader();
 		directoriesScreen.addPreference(myChooserCollection.createPreference(
 			directoriesScreen.Resource, "fontPath", Paths.FontPathOption, fontReloader
@@ -150,7 +150,7 @@ public class PreferenceActivity extends ZLPreferenceActivity {
 			directoriesScreen.Resource, "tempDir", Paths.TempDirectoryOption, null
 		)); */
 
-		/*final Screen syncScreen = createPreferenceScreen("sync");
+		final Screen syncScreen = createPreferenceScreen("sync");
 		final PreferenceSet syncPreferences = new PreferenceSet.Enabler() {
 			@Override
 			protected Boolean detectState() {
@@ -235,7 +235,7 @@ public class PreferenceActivity extends ZLPreferenceActivity {
 		//syncPreferences.add(syncScreen.addOption(syncOptions.Metainfo, "metainfo", "values"));
 		//syncPreferences.add(syncScreen.addOption(syncOptions.Bookmarks, "bookmarks", "values"));
 		syncPreferences.run();
-		*/
+
 
 		final Screen appearanceScreen = createPreferenceScreen("appearance");
 
