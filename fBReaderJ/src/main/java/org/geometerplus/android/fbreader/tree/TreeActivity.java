@@ -248,10 +248,28 @@ public abstract class TreeActivity<T extends FBTree> extends ListActivity {
 		final FBTree.Key key = (FBTree.Key)intent.getSerializableExtra(TREE_KEY_KEY);
 		final FBTree.Key selectedKey = (FBTree.Key)intent.getSerializableExtra(SELECTED_TREE_KEY_KEY);
 		myCurrentTree = getTreeByKey(key);
+
+		if (key==null)
+			Log.v("FTS-key", "NULL");
+		else
+			Log.v("FTS-key", key.toString());
+
+		if (myCurrentTree==null)
+			Log.v("FTS-tree", "NULL");
+		else
+			Log.v("FTS-tree", myCurrentTree.toString());
+
+
 		// not myCurrentKey = key
 		// because key might be null
 		myCurrentKey = myCurrentTree.getUniqueKey();
 		final TreeAdapter adapter = getListAdapter();
+
+		if (adapter==null)
+			Log.v("FTS-adapter", "NULL");
+		else
+			Log.v("FTS-adapter", adapter.toString());
+
 		adapter.replaceAll(myCurrentTree.subtrees(), false);
 		setTitle(myCurrentTree.getTreeTitle());
 		final FBTree selectedTree =

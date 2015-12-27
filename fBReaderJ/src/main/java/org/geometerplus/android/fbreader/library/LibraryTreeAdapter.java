@@ -40,7 +40,7 @@ import org.geometerplus.android.util.ViewUtil;
 class LibraryTreeAdapter extends TreeAdapter {
 	private CoverManager myCoverManager;
 
-	LibraryTreeAdapter(LibraryActivity activity) {
+	LibraryTreeAdapter(TreeActivity activity) {
 		super(activity);
 	}
 

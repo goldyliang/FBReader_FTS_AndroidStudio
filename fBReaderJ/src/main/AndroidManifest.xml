@@ -153,6 +153,11 @@
 				<action android:name="android.fbreader.action.LIBRARY_SERVICE"/>
 			</intent-filter>
 		</service>
+		<service android:name="org.geometerplus.fbreader.fulltextsearch.FTSService" android:launchMode="singleTask">
+			<intent-filter>
+				<action android:name="android.fbreader.action.FTS_SERVICE"/>
+			</intent-filter>
+		</service>
 		<service android:name="org.geometerplus.android.fbreader.config.ConfigService" android:launchMode="singleTask" android:process=":configService">
 			<intent-filter>
 				<action android:name="android.fbreader.action.CONFIG_SERVICE"/>
@@ -189,6 +194,13 @@
 
 			<intent-filter>
 				<action android:name="android.fbreader.action.LIBRARY"/>
+				<category android:name="android.intent.category.DEFAULT"/>
+			</intent-filter>
+		</activity>
+		<activity android:name="org.geometerplus.android.fbreader.library.FTSSelectActivity" android:launchMode="singleTask" android:theme="@style/FBReader.Activity" android:configChanges="orientation|keyboardHidden|screenSize">
+			<meta-data android:name="android.app.default_searchable" android:value="org.geometerplus.android.fbreader.library.FTSSelectActivity"/>
+			<intent-filter>
+				<action android:name="android.fbreader.action.FTS_SELECT"/>
 				<category android:name="android.intent.category.DEFAULT"/>
 			</intent-filter>
 		</activity>

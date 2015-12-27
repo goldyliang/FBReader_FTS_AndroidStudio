@@ -19,6 +19,12 @@
 
 package org.geometerplus.fbreader.fbreader;
 
+import android.content.Intent;
+import android.content.ActivityNotFoundException;
+import android.net.Uri;
+import android.util.Log;
+
+import org.geometerplus.zlibrary.core.resources.ZLResource;
 import org.geometerplus.zlibrary.text.view.ZLTextView;
 
 class FindPreviousAction extends FBAction {
@@ -34,6 +40,14 @@ class FindPreviousAction extends FBAction {
 
 	@Override
 	protected void run(Object ... params) {
-		Reader.getTextView().findPrevious();
+		final String url = ZLResource.resource("links").getResource("faqPage").getValue();
+		final Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+		new Thread(new Runnable() {
+			public void run() {
+
+				Log.v("FTS", "we are in");
+
+			}
+		}).start();
 	}
 }

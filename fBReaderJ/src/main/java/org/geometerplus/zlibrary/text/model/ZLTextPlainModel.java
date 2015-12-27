@@ -19,6 +19,8 @@
 
 package org.geometerplus.zlibrary.text.model;
 
+import android.util.Log;
+
 import java.util.*;
 
 import org.geometerplus.zlibrary.core.fonts.FontManager;
@@ -419,6 +421,8 @@ public class ZLTextPlainModel implements ZLTextModel, ZLTextStyleEntry.Feature {
 
 	public final ZLTextParagraph getParagraph(int index) {
 		final byte kind = myParagraphKinds[index];
+		//Log.v("KIND:", String.valueOf(kind));
+
 		return (kind == ZLTextParagraph.Kind.TEXT_PARAGRAPH) ?
 			new ZLTextParagraphImpl(this, index) :
 			new ZLTextSpecialParagraphImpl(kind, this, index);
