@@ -32,6 +32,8 @@ import android.view.*;
 import android.widget.AdapterView;
 import android.widget.ListView;
 
+import org.geometerplus.fbreader.Paths;
+import org.geometerplus.fbreader.fulltextsearch.FTSService;
 import org.geometerplus.zlibrary.core.filesystem.ZLFile;
 import org.geometerplus.zlibrary.core.options.ZLStringOption;
 import org.geometerplus.zlibrary.core.resources.ZLResource;
@@ -76,57 +78,6 @@ public class LibraryActivity extends TreeActivity<LibraryTree> implements MenuIt
 				myRootTree = new RootTree(myCollection);
 				myCollection.addListener(LibraryActivity.this);
 				init(getIntent());
-
-//				Log.d("HERE HERE" , "bindToService()");
-//
-//				if (mySelectedBook != null) {
-//
-//					new AsyncTask <Object, Object, Object> () {
-//						@Override
-//						protected Object doInBackground(Object[] params) {
-//
-//
-//							for (FBTree firstLevel : myRootTree.subtrees())
-//								if (firstLevel instanceof FileTree) {
-//
-//									LibraryTree tree = (FileTree) firstLevel;
-//
-//									if (tree.hasChildren())
-//										Log.d("HERE HERE", "Has children");
-//
-//									while (tree == firstLevel || tree.containsBook(mySelectedBook)) {
-//										Log.d("HERE HERE", "Tree=" + tree.getName());
-//										List<FBTree> subTrees = tree.subtrees();
-//
-//										LibraryTree matchedTree = null;
-//										for (FBTree subTree : subTrees) {
-//											Log.d("HERE HERE", "Tree=" + subTree.getName());
-//											if (subTree instanceof LibraryTree) {
-//												LibraryTree lTree = (LibraryTree) subTree;
-//												if (lTree.containsBook(mySelectedBook))
-//													// Found a new level
-//													matchedTree = lTree;
-//											}
-//										}
-//
-//										if (matchedTree != null)
-//											tree = matchedTree;
-//										else {
-//											tree = myRootTree;
-//											break;
-//										}
-//									}
-//
-//									if (tree != myRootTree) {
-//										openTree(tree);
-//										break;
-//									}
-//								}
-//							return null;
-//						}
-//					}.execute();
-//				}
-
 			}
 		});
 
@@ -134,7 +85,16 @@ public class LibraryActivity extends TreeActivity<LibraryTree> implements MenuIt
 	}
 
 
+	@Override
+	protected void onStart () {
+		super.onStart();
 
+		Intent intent = new Intent (LibraryActivity.this, FTSService.class);
+		intent.putExtra(FTSService.FTS_BOOKS_FOLDER, Paths.mainBookDirectory());
+
+		startService(intent);
+
+	}
 
 	@Override
 	protected void onNewIntent(Intent intent) {
