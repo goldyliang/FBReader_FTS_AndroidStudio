@@ -4,13 +4,11 @@ import android.annotation.TargetApi;
 import android.app.IntentService;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.CursorLoader;
 import android.content.Intent;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
-import android.os.AsyncTask;
 import android.provider.BaseColumns;
 import android.text.Html;
 import android.util.Log;
@@ -50,6 +48,8 @@ import org.geometerplus.zlibrary.text.model.ZLTextParagraph;
 @TargetApi(16)
 public class FTSService extends IntentService implements IBookCollection.Listener {
 
+    public static final String FTS_BOOKS_FOLDER = "folder";
+
     private static final String TAG = "FTSService";
 
     private static final String COL_LOCATION = "LOCATION";
@@ -74,9 +74,9 @@ public class FTSService extends IntentService implements IBookCollection.Listene
             "CREATE VIRTUAL TABLE " + FTS_VIRTUAL_TABLE +
                     " USING fts4 (" +
                     "content=" + FTS_CONTENT_TABLE + ", " +
-                    COL_BOOKID + ", " +
-                    COL_LOCATION + ", " +
-                    COL_TEXT +
+                    COL_BOOKID + ", " +   // book ID in FBReader library
+                    COL_LOCATION + ", " + // location in book
+                    COL_TEXT +            // text of paragraph
                     //", notindexed=" + COL_BOOKID +
                     //", notindexed=" + COL_LOCATION +
                     //", tokenize=icu zh_CN)";
@@ -88,7 +88,7 @@ public class FTSService extends IntentService implements IBookCollection.Listene
                     //+ COL_DOCID +  " INTEGER PRIMARY KEY, "
                     + COL_BOOKID + " ,  "
 //                    + COL_FILEPATH + ", "
-                    + COL_LOCATION + ""
+                    + COL_LOCATION + ", "
                     + COL_TEXT
                     +")";
 
@@ -96,22 +96,24 @@ public class FTSService extends IntentService implements IBookCollection.Listene
     private static final String BOOK_STATUS_TABLE_CREATE =
             "CREATE TABLE " + BOOK_STATUS_TABLE
                     + " ( "
-                    + COL_BOOKID + ","
-                    + COL_FILEPATH + ","
-                    + COL_FILESIZE + ","
-                    + COL_MODIFIED_TIME + ","
-                    + COL_INDEXPOS + " ) ";
+                    + COL_BOOKID + ","         // book ID in FBReader library
+                    + COL_FILEPATH + ","       // path of the file
+                    + COL_FILESIZE + ","       // size of file
+                    + COL_MODIFIED_TIME + ","  // book modified time
+                    + COL_INDEXPOS + " ) ";    // last index build position
 
     private static final int DATABASE_VERSION = 1;
 
-    private final DatabaseOpenHelper mDatabaseOpenHelper;
+    // Database helper for the index database
+    private DatabaseOpenHelper mDatabaseOpenHelper;
+    ;
 
     private static final String FORMAT_HIGHTLIGHT_START = "<font color='red'>";
     private static final String FORMAT_HIGHTLIGHT_END = "</font>";
-    private static final String DATABASE_PATH = Paths.TempDirectoryOption.getValue();
     private static final String DATABASE_FILE = "index.db";
 
-    private BreakIterator mBreakIter;// = BreakIterator.getWordInstance(Locale.CHINA);
+    // An iterator to break the text
+    private BreakIterator mBreakIter  = BreakIterator.getWordInstance();// = BreakIterator.getWordInstance(Locale.CHINA);
    /*
         mBreakIter = BreakIterator.getWordInstance(Locale.CHINESE);
     } */
@@ -123,8 +125,8 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
     private String mDir;
 
-    boolean flagRescanBookStatus = false;
-    private boolean mMarkIndexTaskCanceled = false;
+    boolean flagRescanBookStatus = false; // flag indicating request of rescan
+    private boolean mMarkIndexTaskCanceled = false; // flag indicating the request of cancellation
 
     @Override
     public void onBookEvent(BookEvent event, Book book) {
@@ -136,6 +138,9 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
     }
 
+    /**
+     * Clear the root tree of book library
+     */
     private synchronized void deleteRootTree() {
         if (myRootTree != null) {
             myCollection.removeListener(this);
@@ -144,43 +149,91 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         }
     }
 
+    // Add all book files under folder to the list of books to index
+    private void addBookFilesToIndex (File folder) {
+
+
+        for (File sub : folder.listFiles()) {
+            if (sub.isFile()) {
+                ZLFile file = ZLFile.createFileByPath(sub.getPath());
+                Book book;
+                if (file!=null && (book = myCollection.getBookByFile(file))!=null) {
+                    addBookIndex(book);
+                }
+            } else if (sub.isDirectory()) {
+                addBookFilesToIndex (sub);
+            }
+        }
+    }
+
+    /**
+     * Handle intent of building book index
+     * @param intent
+     */
     @Override
     protected void onHandleIntent(Intent intent) {
 
-        mDatabaseIndexing = mDatabaseOpenHelper.getWritableDatabase();
+        String path = intent.getStringExtra(FTS_BOOKS_FOLDER);
+        String pathIndexDB = path;
 
-        // TODO: temporoty
-        addAllBooksToIndex(myRootTree);
+        File folder;
 
-        loadAndCreateIndex();
+
+        this.orderedListBookIndex.clear();
+
+        try {
+            mDatabaseOpenHelper = new DatabaseOpenHelper(path, 1);
+
+            if (path != null && (folder = new File(path)) != null) {
+                mDatabaseIndexing = mDatabaseOpenHelper.getWritableDatabase();
+
+                // add all books file to orderedListBookIndex
+                addBookFilesToIndex(folder);
+
+                // create index for each file in orderedListBooksIndex
+                loadAndCreateIndex();
+
+            }
+        } finally {
+            mDatabaseOpenHelper.close();
+            mDatabaseOpenHelper = null;
+            mDatabaseIndexing.close();
+            mDatabaseIndexing = null;
+        }
+
+
     }
 
+    /**
+     * Wrapper class of book indexing status
+     */
     private class BookIndexStatus {
         Book book;
         String path;
-        long size;
+        int size;
         long modifiedTime;
-        long indexPos;
+        int indexPos;
     }
 
-    private Map <Long, BookIndexStatus> booksIndexed =
-            new TreeMap <Long,BookIndexStatus> ();
-
+    /**
+     *  The list of books to be indexed in order
+     */
     private List <BookIndexStatus> orderedListBookIndex = new LinkedList<BookIndexStatus>();
 
+    /**
+     * Book collection service provided by FBReader
+     */
     private final BookCollectionShadow myCollection = new BookCollectionShadow();
 
+    /**
+     * The root tree from which to access the FBReader libraries trees and books
+     */
     private volatile RootTree myRootTree;
-
 
 
     public FTSService() {
 
         super("FTSService");
-
-        mBreakIter = BreakIterator.getWordInstance();
-
-        mDatabaseOpenHelper = new DatabaseOpenHelper(null, 1);
 
     }
 
@@ -190,6 +243,7 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
         deleteRootTree();
 
+        /* Bind to library service, and once bound, initialize local fields */
         myCollection.bindToService(this, new Runnable() {
             public void run() {
                 myRootTree = new RootTree(myCollection);
@@ -198,73 +252,79 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         });
     }
 
-    private final String [] COLUMNS_BOOK_STATUS_TABLE = {
-            COL_BOOKID, COL_FILEPATH, COL_FILESIZE, COL_MODIFIED_TIME, COL_INDEXPOS
-    };
+    @Override
+    public void onDestroy() {
+        deleteRootTree();
+
+        if (mDatabaseIndexing!=null)
+            mDatabaseIndexing.close();
+
+        super.onDestroy();
+    }
 
 
-    /* Read from the database and update the
-       index status table
+    /* Combine information of the index-list and the status table
+       If a book in the index-list already exists in status table,
+              update the last index position from the status table
+       If not, insert an entry for the book
      */
-    public void loadBookIndexStatus () {
-        booksIndexed.clear();
-        orderedListBookIndex.clear();
+    private void loadBookIndexStatus () {
 
+
+        final String [] COLUMNS_BOOK_STATUS_TABLE = {
+                COL_BOOKID, COL_FILEPATH, COL_FILESIZE, COL_MODIFIED_TIME, COL_INDEXPOS
+        };
 
         //private final String [] COLUMNS_BOOK_STATUS_TABLE = {
         //        COL_BOOKID, COL_FILEPATH, COL_FILESIZE, COL_MODIFIED_TIME, COL_INDEXPOS
         //};
 
-        Cursor c = null;
-        synchronized (this) {
-            c = mDatabaseIndexing.query(BOOK_STATUS_TABLE, COLUMNS_BOOK_STATUS_TABLE,
-                    null, null, null, null, null);
-        }
+        Iterator<BookIndexStatus> iter = orderedListBookIndex.iterator();
 
-        c.moveToFirst();
-        while (!c.isAfterLast()) {
+        while (iter.hasNext()) {
+            BookIndexStatus bkStatus = iter.next();
 
-            BookIndexStatus bkStatus = new BookIndexStatus();
-
-            long id = c.getLong (0);
-            //Book book = BookCollection.Status.
-
-            Book book = myCollection.getBookById(id);
-            bkStatus.book = book;
-            ZLFile file = book.File;
-            bkStatus.path = file.getPath();
-            bkStatus.size = file.size();
-            bkStatus.modifiedTime = file.lastModified();
-
-            //check the status in database, whether it is inline with the actual file
-            if (!bkStatus.path.equals(c.getString(1)) ||
-                 bkStatus.size != c.getLong(2) ||
-                 bkStatus.modifiedTime != c.getLong(3) ) {
-                // TODO
-                // this is a modified file, not the original one
-                // add the record to the database as well
+            Cursor c = null;
+            String selection = COL_BOOKID + " = " + bkStatus.book.getId();
+            synchronized (this) {
+                c = mDatabaseIndexing.query(BOOK_STATUS_TABLE, COLUMNS_BOOK_STATUS_TABLE,
+                        selection, null, null, null, null);
             }
 
-            bkStatus.indexPos = c.getLong(4);
+            c.moveToFirst();
 
-            booksIndexed.put (book.getId(), bkStatus);
+            if (!c.isAfterLast()) {
+                // The status of this book already in database
+                // Verify information
 
-            orderedListBookIndex.add(0, bkStatus);
+                //check the status in database, whether it is inline with the actual file
+                if (!bkStatus.path.equals(c.getString(1)) ||
+                        bkStatus.size != c.getLong(2) ||
+                        bkStatus.modifiedTime != c.getLong(3)) {
+                    // this is a modified file, not the original one
+                    // Ignore it. When the library is refreshed, there will be a new book ID
+                    // and the scan will be redo towards the new book ID
+                    // SO now just remove this book status
+                    iter.remove();
+                } else {
+                    // update the last index position
+                    bkStatus.indexPos = c.getInt(4);
 
-            c.moveToNext();
+                    if (bkStatus.indexPos >= bkStatus.size)
+                        // already finished, ignore
+                        iter.remove();;
+                }
+            } else {
+                // THe status of this book not yet in database
+                // Create an entry
+
+                addBookStatusInDatabase(bkStatus);
+            }
         }
 
     }
 
-    // add all books in the collection to the index book list
-    private void addAllBooksToIndex (LibraryTree tree) {
-        for (int i=1; i<=7; i++) {
-            Book bk = myCollection.getBookById(i);
-            if (bk!=null)
-                addBookIndex(bk);
-        }
-    }
-
+    // add an entry in the indexing data base for a book status
     private void addBookStatusInDatabase (BookIndexStatus bkStatus) {
 
         //private final String [] COLUMNS_BOOK_STATUS_TABLE = {
@@ -282,46 +342,25 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
     }
 
-    /* Add a book into the index pool (set to highest priority)
-       and restart the indexing process if it was running
+    /* Add a book into the indexing book list orderedListBookIndex (set to highest priority)
      */
     public void addBookIndex(Book book) {
-
-        if (booksIndexed.get(book.getId())!=null)
-            return;
 
         BookIndexStatus bkStatus = new BookIndexStatus();
 
         bkStatus.book = book;
         ZLFile file = book.File;
         bkStatus.path = file.getPath();
-        bkStatus.size = file.size();
+        bkStatus.size = getBookParagraphNum (book);
         bkStatus.modifiedTime = file.lastModified();
 
-        bkStatus.indexPos = 0; // TODO: get index pos from database
+        bkStatus.indexPos = 0; // Initial value, will be overwritten with the value in database
 
-        booksIndexed.put(book.getId(), bkStatus);
+        //booksIndexed.put(book.getId(), bkStatus);
 
         orderedListBookIndex.add(0, bkStatus);
 
-        addBookStatusInDatabase (bkStatus);
-
-    }
-
-    /* Delete a book from the index pool
-       and delete all indexing tuples from database
-     */
-    public void deleteBookIndex(Book book) {
-        BookIndexStatus bkStatus = booksIndexed.get(book.getId());
-
-        if (bkStatus!=null) {
-            orderedListBookIndex.remove(bkStatus);
-
-            booksIndexed.remove(book.getId());
-        }
-
-        // TODO: remove book from database
-        // TODO: remove index data from database
+        //addBookStatusInDatabase (bkStatus);
 
     }
 
@@ -359,14 +398,6 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         return 0;
     }
 
-    /* Get the index progress for the specific book
-
-     */
-    public float indexProgress(Book book) {
-        BookIndexStatus bkStatus = booksIndexed.get(book.getId());
-
-        return (float)bkStatus.indexPos / bkStatus.size;
-    }
 
     /* Return whether the background index task is running
 
@@ -407,7 +438,8 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         return indexProgress() >= 1.0;
     }
 
-    private synchronized String getTokenizedText (String txt, List<String> words) {
+    /* Retrieve all words from a text */
+    private synchronized String getWordsFromText(String txt, List<String> words) {
         mBreakIter.setText(txt);
         int start = mBreakIter.first();
         int end = mBreakIter.next();
@@ -426,11 +458,14 @@ public class FTSService extends IntentService implements IBookCollection.Listene
             end = mBreakIter.next();
         }
 
-        buf.deleteCharAt(buf.length()-1);
+        if (buf.length() > 0)
+            buf.deleteCharAt(buf.length()-1);
 
         return buf.toString();
     }
 
+    /* Retrieve an HTML annotated text, highlighting all words from the list of words
+     */
     private static String getHighlightedText (String txt, List<String> words) {
         StringBuffer buf = new StringBuffer(txt);
 
@@ -447,13 +482,15 @@ public class FTSService extends IntentService implements IBookCollection.Listene
     }
 
 
+    /* Database helper to create/open and manager the indexing database
+     */
     private class DatabaseOpenHelper extends SDCardSQLiteOpenHelper {
 
         //private final Context mHelperContext;
         private SQLiteDatabase mDatabase;
 
-        public DatabaseOpenHelper (SQLiteDatabase.CursorFactory factory, int version) {
-            super(DATABASE_PATH, DATABASE_FILE, factory, version);
+        public DatabaseOpenHelper (String path, int version) {
+            super(path, DATABASE_FILE, null , version);
         }
        /* DatabaseOpenHelper(Context context) {
             super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -470,9 +507,9 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         @Override
         public void onCreate(SQLiteDatabase db) {
             mDatabase = db;
-            mDatabase.execSQL (FTS_CONTENT_TABLE_CREATE);
-            mDatabase.execSQL (FTS_TABLE_CREATE);
-            mDatabase.execSQL (BOOK_STATUS_TABLE_CREATE);
+            mDatabase.execSQL (FTS_CONTENT_TABLE_CREATE + ";");
+            mDatabase.execSQL (FTS_TABLE_CREATE+ ";");
+            mDatabase.execSQL (BOOK_STATUS_TABLE_CREATE+ ";");
 
             //loadAndCreateIndex();
         }
@@ -482,7 +519,8 @@ public class FTSService extends IntentService implements IBookCollection.Listene
             mDatabase = db;
 
             //TODO: temprory
-            deleteTables();
+            //deleteTables();
+            //onCreate(db);
 
             //loadAndCreateIndex();
 
@@ -498,7 +536,14 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
     }
 
+    // Insert a line for indexing
     private boolean insertLineIndex (long bookId, long loc, String line) {
+
+        if (line == null || line.isEmpty()) return true;
+
+        String txtToAdd = getWordsFromText(line, null);
+
+        if (txtToAdd == null || txtToAdd.isEmpty()) return true;
 
         synchronized (this) {
             if (!mDatabaseIndexing.isOpen())
@@ -525,8 +570,7 @@ public class FTSService extends IntentService implements IBookCollection.Listene
             initialValues.put(COL_BOOKID, 0);
             initialValues.put(COL_LOCATION, 0);
 
-            String txt = getTokenizedText(line, null);
-            initialValues.put(COL_TEXT, txt);
+            initialValues.put(COL_TEXT, txtToAdd);
 
             long r2 = 0;
 
@@ -555,7 +599,38 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
     }
 
-    // load and create index in file path, starting from location pos
+    private ZLTextModel getModelText (Book book) {
+        BookModel model = null;
+
+        try {
+            FormatPlugin plugin = book.getPlugin();
+
+            if (plugin instanceof BuiltinFormatPlugin) {
+                model = BookModel.createModel(book);
+                Log.v("model class", model.getClass().toString());
+            }
+
+            if (model == null) return null;
+
+            return model.getTextModel();
+        } catch (BookReadingException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+    }
+
+    private int getBookParagraphNum (Book book) {
+        ZLTextModel model = getModelText (book);
+
+        if (model == null)
+            return 0;
+        else
+            return model.getParagraphsNumber();
+    }
+
+    // load the book and create index for the book provided in bkStatus
+    // Start from last location indicated in bkStatus
     private void loadAndCreateIndex(BookIndexStatus bkStatus) {
 
         //mLastDocID = 0;
@@ -577,32 +652,18 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
             Book book = bkStatus.book;
 
-            BookModel model = null;
-            try {
-                FormatPlugin plugin = book.getPlugin();
+            ZLTextModel modelText = getModelText(book);
 
-                if (plugin instanceof BuiltinFormatPlugin) {
-                    model = BookModel.createModel(book);
-                    Log.v("model class", model.getClass().toString());
-                }
-            } catch (BookReadingException e) {
-                e.printStackTrace();
+            if (modelText == null)
                 return;
-            }
-
-            if (model == null) return;
-
-            ZLTextModel modelText = model.getTextModel();
-
-            Log.v("text model class", modelText.getClass().toString());
-
 
             int n = modelText.getParagraphsNumber();
+
             Log.v("PARA NUM", String.valueOf(n));
 
             long bookId = book.getId();
 
-            for (int i = 0; i < n; i++) {
+            for (int i = bkStatus.indexPos; i < n; i++) {
                 ZLTextParagraph p = modelText.getParagraph(i);
 
                 ZLTextParagraph.EntryIterator iter = p.iterator();
@@ -621,22 +682,21 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
                         progress = (float) i / n;
 
-                        System.out.println("indexed:" + i + "; total:" + n + "; progress:" + progress);
-
-                        newPosValues.clear();
-                        newPosValues.put(COL_INDEXPOS, i);
-                        synchronized (this) {
-                            mDatabaseIndexing.update(BOOK_STATUS_TABLE,
-                                    newPosValues,
-                                    COL_BOOKID + " = ?",
-                                    new String[]{String.valueOf(bookId)}
-                            );
-                        }
-
+                        //System.out.println("indexed:" + i + "; total:" + n + "; progress:" + progress);
                         break;
                     }
 
                     if (mMarkIndexTaskCanceled) break;
+                }
+
+                newPosValues.clear();
+                newPosValues.put(COL_INDEXPOS, i + 1); // the next position which not indexed yet
+                synchronized (this) {
+                    int updated = mDatabaseIndexing.update(BOOK_STATUS_TABLE,
+                            newPosValues,
+                            COL_BOOKID + " = " + bookId, null);
+                    //new String[]{String.valueOf(bookId)});
+                    bkStatus.indexPos = i;
                 }
                 //Log.v("Para " + i, String.valueOf(start) + "-" + String.valueOf(len)); //new String (c));
             }
@@ -675,6 +735,8 @@ public class FTSService extends IntentService implements IBookCollection.Listene
                     + " WHERE " + COL_TEXT + " MATCH ?";
 
 
+    /* Performe a full-text search and return the cursor of results
+     */
     private Cursor searchText (String query) {
 
         if (query == null) return null;
@@ -682,7 +744,7 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         ArrayList<String> words = new ArrayList<String> ();
 
         String[] selectionArgs = new String[]{// query };
-                getTokenizedText(query,words)}; //todo deal with "", AND, OR etc
+                getWordsFromText(query, words)}; //todo deal with "", AND, OR etc
 
         SQLiteQueryBuilder builder = new SQLiteQueryBuilder();
         builder.setTables(FTS_VIRTUAL_TABLE);
@@ -771,6 +833,7 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         return cursor;
     }*/
 
+    // Adapter to convert the text view to parse the HTML annoations
     public static class HTMLTextCursorAdapter extends SimpleCursorAdapter {
         HTMLTextCursorAdapter(Context context, int layout, Cursor c,
                               String[] from, int[] to, int flags) {
@@ -780,22 +843,6 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         @Override
         public void setViewText (TextView v, String text) {
             v.setText(Html.fromHtml(text));
-        }
-    }
-
-    public static class TextQueryLoader extends CursorLoader {
-        private String mTxt;
-        FTSService mTable;
-
-        TextQueryLoader (Context context, FTSService table, String txt) {
-            super(context);
-            mTable = table;
-            mTxt = txt;
-        }
-
-        @Override
-        public Cursor loadInBackground () {
-            return mTable.searchText(mTxt);
         }
     }
 
