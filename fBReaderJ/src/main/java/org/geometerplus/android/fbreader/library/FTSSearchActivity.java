@@ -24,6 +24,7 @@ import android.app.LoaderManager;
 import android.content.*;
 import android.database.Cursor;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.text.Html;
 import android.util.Log;
 import android.view.*;
@@ -39,6 +40,7 @@ import org.geometerplus.fbreader.Paths;
 import org.geometerplus.fbreader.book.Book;
 import org.geometerplus.fbreader.fulltextsearch.FTSIndexDatabase;
 
+import org.geometerplus.fbreader.fulltextsearch.FTSService;
 import org.geometerplus.fbreader.fulltextsearch.SearchHighlighter;
 import org.geometerplus.fbreader.library.ExternalViewTree;
 import org.geometerplus.fbreader.library.LibraryTree;
@@ -80,6 +82,13 @@ public class FTSSearchActivity extends ListActivity
     FTSIndexDatabase database;
 
 
+    BroadcastReceiver progressReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            mProgressBar.setProgress(intent.getIntExtra("progress", 0));
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -88,6 +97,10 @@ public class FTSSearchActivity extends ListActivity
 
         mProgressBar = (ProgressBar) findViewById (R.id.progressBarIndex);
         mProgressBar.setMax(100);
+
+        LocalBroadcastManager.getInstance(this).
+                registerReceiver(progressReceiver,
+                        new IntentFilter(FTSService.PROGRESS_REPORT));
 
         mButtonFTS = (Button) findViewById (R.id.buttonFTS);
 
@@ -111,6 +124,11 @@ public class FTSSearchActivity extends ListActivity
         mSearchText = (EditText)findViewById(R.id.searchText);
 
         database = FTSIndexDatabase.getReadOnlyIndexDatabase(this, Paths.mainBookDirectory());
+
+        Intent intent = new Intent (this, FTSService.class);
+        intent.putExtra(FTSService.FTS_BOOKS_FOLDER, Paths.mainBookDirectory());
+
+        startService(intent);
 
        // getLoaderManager().initLoader(0, null, this);
 
@@ -208,5 +226,7 @@ public class FTSSearchActivity extends ListActivity
             FBReader.openBookActivityWithSearchHighlight(this, book, null, highlighter);
         }
     }
+
+
 
 }

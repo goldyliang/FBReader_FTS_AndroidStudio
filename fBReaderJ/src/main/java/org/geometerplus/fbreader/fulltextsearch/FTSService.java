@@ -4,6 +4,7 @@ import android.annotation.TargetApi;
 import android.app.IntentService;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 
 import java.io.File;
@@ -37,6 +38,9 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
     FTSIndexDatabase mIndexDatabase;
 
+    public static final String PROGRESS_REPORT = "com.goldyliang.FTSProgress";
+
+
     @Override
     public void onBookEvent(BookEvent event, Book book) {
 
@@ -61,8 +65,10 @@ public class FTSService extends IntentService implements IBookCollection.Listene
     // Add all book files under folder to the list of books to index
     private void addBookFilesToIndex (File folder) {
 
+        Log.v("FTS", "Check path:" + folder.getPath());
 
         for (File sub : folder.listFiles()) {
+            Log.v("FTS", "Check path:" + sub.getPath());
             if (sub.isFile()) {
                 ZLFile file = ZLFile.createFileByPath(sub.getPath());
                 Book book;
@@ -75,40 +81,7 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         }
     }
 
-    /**
-     * Handle intent of building book index
-     * @param intent
-     */
-    @Override
-    protected void onHandleIntent(Intent intent) {
 
-        String path = intent.getStringExtra(FTS_BOOKS_FOLDER);
-        String pathIndexDB = path;
-
-        File folder = new File (path);
-
-        this.orderedListBookIndex.clear();
-
-        try {
-            mIndexDatabase = FTSIndexDatabase.getWrittableIndexDatabase(this, path);
-
-            if (mIndexDatabase != null) {
-
-                totalParagraphs = 0;
-
-                // add all books file to orderedListBookIndex
-                addBookFilesToIndex(folder);
-
-                // create index for each file in orderedListBooksIndex
-                loadAndCreateIndex();
-
-            }
-        } finally {
-            mIndexDatabase.closeDatabase();
-        }
-
-
-    }
 
 
     /**
@@ -116,7 +89,10 @@ public class FTSService extends IntentService implements IBookCollection.Listene
      */
     private List <BookIndexStatus> orderedListBookIndex = new LinkedList<BookIndexStatus>();
 
-    int totalParagraphs;
+    private int totalParagraphs;
+    private int doneParagraphs;
+    private int cumulatedIndexedCount;
+    private static final int UPDATE_PROGRESS_PER_PARAGRAPH = 100;
 
     /**
      * Book collection service provided by FBReader
@@ -135,6 +111,24 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
     }
 
+    private void waitForBound() {
+
+        synchronized (myCollection) {
+            while (myRootTree == null) {
+                try {
+                    myCollection.wait();
+                } catch (InterruptedException e) {
+                }
+            }
+        }
+
+        Log.v("FTS", "Waited bound");
+    }
+
+    private synchronized void getRootTreeAndNotify () {
+
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -144,10 +138,58 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         /* Bind to library service, and once bound, initialize local fields */
         myCollection.bindToService(this, new Runnable() {
             public void run() {
-                myRootTree = new RootTree(myCollection);
                 myCollection.addListener(FTSService.this);
+
+                synchronized (myCollection) {
+                    myRootTree = new RootTree(myCollection);
+                    myCollection.notifyAll();
+                }
+
+                Log.v("FTS", "Collection bound");
+
             }
         });
+    }
+
+    /**
+     * Handle intent of building book index
+     * @param intent
+     */
+    @Override
+    protected void onHandleIntent(Intent intent) {
+
+        String path = intent.getStringExtra(FTS_BOOKS_FOLDER);
+        String pathIndexDB = path;
+
+        Log.v("Handle Intent:", path + pathIndexDB);
+
+        File folder = new File (path);
+
+        this.orderedListBookIndex.clear();
+
+        waitForBound();
+
+        try {
+            mIndexDatabase = FTSIndexDatabase.getWrittableIndexDatabase(this, path);
+
+            if (mIndexDatabase != null) {
+
+                totalParagraphs = 0;
+
+                // add all books file to orderedListBookIndex
+                addBookFilesToIndex(folder);
+
+                Log.v("FTS", "Total paragraphs:" + totalParagraphs);
+
+                // create index for each file in orderedListBooksIndex
+                loadAndCreateIndex();
+
+            }
+        } finally {
+            mIndexDatabase.closeDatabase();
+        }
+
+
     }
 
     @Override
@@ -167,6 +209,7 @@ public class FTSService extends IntentService implements IBookCollection.Listene
      */
     private void loadBookIndexStatus () {
 
+        doneParagraphs = 0;
 
         Iterator<BookIndexStatus> iter = orderedListBookIndex.iterator();
 
@@ -190,6 +233,8 @@ public class FTSService extends IntentService implements IBookCollection.Listene
                     // update the last index position
                     bkStatus.indexPos = statusDatabase.indexPos;
 
+                    doneParagraphs += bkStatus.indexPos;
+
                     if (bkStatus.indexPos >= bkStatus.size)
                         // already finished, ignore
                         iter.remove();;
@@ -207,6 +252,8 @@ public class FTSService extends IntentService implements IBookCollection.Listene
     /* Add a book into the indexing book list orderedListBookIndex (set to highest priority)
      */
     public void addBookIndex(Book book) {
+
+        Log.v("Add book" , book.getTitle());
 
         BookIndexStatus bkStatus = new BookIndexStatus();
 
@@ -234,7 +281,9 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
         loadBookIndexStatus();
 
-        System.out.println ("Now loading index for " + orderedListBookIndex.size() + " books.");
+        updateProgress(true);
+
+        Log.v ("FTS", "Now loading index for " + orderedListBookIndex.size() + " books.");
 
         // for each new or updated file, build the index
         for (BookIndexStatus bkStatus : orderedListBookIndex) {
@@ -248,6 +297,22 @@ public class FTSService extends IntentService implements IBookCollection.Listene
     }
 
 
+    private void updateProgress (boolean forceReport) {
+        boolean report = (forceReport ||
+                cumulatedIndexedCount >= UPDATE_PROGRESS_PER_PARAGRAPH);
+
+        if (report) {
+            cumulatedIndexedCount = 0;
+
+            Intent msgIntent = new Intent(PROGRESS_REPORT);
+            msgIntent.putExtra("progress", (totalParagraphs==0 ? 0:(doneParagraphs * 100) / totalParagraphs));
+            LocalBroadcastManager.getInstance(this).sendBroadcast(msgIntent);
+
+            Log.v("FTS", "Progress:" + doneParagraphs + " out of " + totalParagraphs);
+        } else
+            cumulatedIndexedCount ++;
+
+    }
 
     // load the book and create index for the book provided in bkStatus
     // Start from last location indicated in bkStatus
@@ -255,6 +320,7 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
         //mLastDocID = 0;
 
+        updateProgress(true);
 
         try {
 
@@ -287,11 +353,11 @@ public class FTSService extends IntentService implements IBookCollection.Listene
                 String txt = BookUtil.getParagraph(modelText, i);
 
                 if (txt != null && txt.length() > 0) {
-                    Log.v("PARA-", String.valueOf(i));
+                    //Log.v("PARA-", String.valueOf(i));
 
                     mIndexDatabase.insertLineIndex(bookId, i, txt);
 
-                    progress = (float) i / n;
+                    updateProgress(false);
 
                     //System.out.println("indexed:" + i + "; total:" + n + "; progress:" + progress);
                 }
@@ -301,6 +367,8 @@ public class FTSService extends IntentService implements IBookCollection.Listene
                 mIndexDatabase.updateBookIdxPosition(bkStatus.bookId, i+1);
 
                 bkStatus.indexPos = i + 1;
+
+                doneParagraphs ++;
                 //Log.v("Para " + i, String.valueOf(start) + "-" + String.valueOf(len)); //new String (c));
             }
         } catch (Exception e) {
