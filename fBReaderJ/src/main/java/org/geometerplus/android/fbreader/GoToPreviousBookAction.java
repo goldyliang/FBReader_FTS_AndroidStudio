@@ -35,6 +35,6 @@ class GoToPreviousBookAction extends FBAndroidAction {
 		// TODO: use resource file
 		Dlg.toast(BaseActivity, recentBook == null ?
 				"No previous book" : "Returned to " + recentBook.getTitle(), 1);
-		Reader.openBook(recentBook, null, null, null);
+		Reader.openBook(recentBook, null, null, null, null);
 	}
 }

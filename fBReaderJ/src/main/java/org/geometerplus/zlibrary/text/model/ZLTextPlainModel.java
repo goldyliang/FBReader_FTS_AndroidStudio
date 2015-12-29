@@ -415,6 +415,10 @@ public class ZLTextPlainModel implements ZLTextModel, ZLTextStyleEntry.Feature {
 		myMarks = null;
 	}
 
+	public final void setMarks ( List <ZLTextMark> marks) {
+		myMarks = new ArrayList<ZLTextMark>(marks);
+	}
+
 	public final int getParagraphsNumber() {
 		return myParagraphsNumber;
 	}

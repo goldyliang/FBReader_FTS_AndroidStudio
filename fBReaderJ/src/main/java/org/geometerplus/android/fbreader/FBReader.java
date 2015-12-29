@@ -33,6 +33,8 @@ import android.os.*;
 import android.view.*;
 import android.widget.RelativeLayout;
 
+import org.geometerplus.fbreader.book.HighlightingStyle;
+import org.geometerplus.fbreader.fulltextsearch.SearchHighlighter;
 import org.geometerplus.zlibrary.core.application.ZLApplicationWindow;
 import org.geometerplus.zlibrary.core.filesystem.ZLFile;
 import org.geometerplus.zlibrary.core.library.ZLibrary;
@@ -75,7 +77,9 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 	public static final int RESULT_DO_NOTHING = RESULT_FIRST_USER;
 	public static final int RESULT_REPAINT = RESULT_FIRST_USER + 1;
 
-	public static void openBookActivity(Context context, Book book, Bookmark bookmark) {
+	public static void openBookActivity(Context context,
+										Book book,
+										Bookmark bookmark) {
 		final Intent intent = new Intent(context, FBReader.class)
 			.setAction(FBReaderIntents.Action.VIEW)
 			//.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -83,6 +87,25 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 
 		FBReaderIntents.putBookExtra(intent, book);
 		FBReaderIntents.putBookmarkExtra(intent, bookmark);
+
+		context.startActivity(intent);
+	}
+
+	public static void openBookActivityWithSearchHighlight(Context context,
+										Book book,
+										Bookmark bookmark,
+										SearchHighlighter highlighter) {
+		final Intent intent = new Intent(context, FBReader.class)
+				.setAction(FBReaderIntents.Action.VIEW)
+						//.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+				.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+
+		FBReaderIntents.putBookExtra(intent, book);
+		FBReaderIntents.putBookmarkExtra(intent, bookmark);
+
+		if (highlighter!=null)
+			FBReaderIntents.putSearchHilighterExtra(intent, highlighter);
+
 		context.startActivity(intent);
 	}
 
@@ -143,12 +166,16 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 
 		myBook = FBReaderIntents.getBookExtra(intent);
 		final Bookmark bookmark = FBReaderIntents.getBookmarkExtra(intent);
+		final SearchHighlighter highlighter = FBReaderIntents.getSearchHilighterExtra(intent);
+
+
 		if (myBook == null) {
 			final Uri data = intent.getData();
 			if (data != null) {
 				myBook = createBookForFile(ZLFile.createFileByPath(data.getPath()));
 			}
 		}
+
 		if (myBook != null) {
 			ZLFile file = myBook.File;
 			if (!file.exists()) {
@@ -161,7 +188,7 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 		}
 		Config.Instance().runOnConnect(new Runnable() {
 			public void run() {
-				myFBReaderApp.openBook(myBook, bookmark, action, myNotifier);
+				myFBReaderApp.openBook(myBook, bookmark, highlighter, action, myNotifier);
 				AndroidFontUtil.clearFontCache();
 			}
 		});
@@ -319,7 +346,7 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 				myOpenBookIntent = null;
 				getCollection().bindToService(this, new Runnable() {
 					public void run() {
-						myFBReaderApp.openBook(null, null, null, myNotifier);
+						myFBReaderApp.openBook(null, null, null, null, myNotifier);
 					}
 				});
 			}
@@ -406,7 +433,7 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 					if (b.equals(book)) {
 						b = myFBReaderApp.Collection.getRecentBook(1);
 					}
-					myFBReaderApp.openBook(b, null, null, myNotifier);
+					myFBReaderApp.openBook(b, null, null, null, myNotifier);
 				}
 			});
 		} else {
@@ -580,7 +607,7 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 		} else if (myFBReaderApp.Model == null && myFBReaderApp.ExternalBook != null) {
 			getCollection().bindToService(this, new Runnable() {
 				public void run() {
-					myFBReaderApp.openBook(myFBReaderApp.ExternalBook, null, null, myNotifier);
+					myFBReaderApp.openBook(myFBReaderApp.ExternalBook, null, null, null, myNotifier);
 				}
 			});
 		} else {
@@ -817,7 +844,7 @@ public final class FBReader extends Activity implements ZLApplicationWindow {
 			public void run() {
 				final Book recent = getCollection().getRecentBook(0);
 				if (recent != null && !recent.equals(book)) {
-					myFBReaderApp.openBook(recent, null, null, null);
+					myFBReaderApp.openBook(recent, null, null, null, null);
 				} else {
 					myFBReaderApp.openHelpBook();
 				}

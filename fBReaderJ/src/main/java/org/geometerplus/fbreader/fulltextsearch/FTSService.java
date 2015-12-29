@@ -3,45 +3,25 @@ package org.geometerplus.fbreader.fulltextsearch;
 import android.annotation.TargetApi;
 import android.app.IntentService;
 import android.content.ContentValues;
-import android.content.Context;
 import android.content.Intent;
-import android.database.Cursor;
-import android.database.MatrixCursor;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteQueryBuilder;
-import android.provider.BaseColumns;
-import android.text.Html;
 import android.util.Log;
-import android.widget.SimpleCursorAdapter;
-import android.widget.TextView;
 
 import java.io.File;
 import java.text.BreakIterator;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
 
 
-import org.geometerplus.android.fbreader.library.FTSIndexDatabase;
-import org.geometerplus.android.fbreader.library.FTSIndexDatabase.BookIndexStatus;
+import org.geometerplus.fbreader.fulltextsearch.FTSIndexDatabase.BookIndexStatus;
 import org.geometerplus.android.fbreader.libraryService.BookCollectionShadow;
-import org.geometerplus.fbreader.Paths;
 import org.geometerplus.fbreader.book.Book;
 import org.geometerplus.fbreader.book.BookEvent;
+import org.geometerplus.fbreader.book.BookUtil;
 import org.geometerplus.fbreader.book.IBookCollection;
-import org.geometerplus.fbreader.bookmodel.BookModel;
-import org.geometerplus.fbreader.bookmodel.BookReadingException;
-import org.geometerplus.fbreader.formats.BuiltinFormatPlugin;
-import org.geometerplus.fbreader.formats.FormatPlugin;
-import org.geometerplus.fbreader.library.LibraryTree;
 import org.geometerplus.fbreader.library.RootTree;
-import org.geometerplus.fbreader.tree.FBTree;
 import org.geometerplus.zlibrary.core.filesystem.ZLFile;
 import org.geometerplus.zlibrary.text.model.ZLTextModel;
-import org.geometerplus.zlibrary.text.model.ZLTextParagraph;
 
 
 /**
@@ -53,18 +33,6 @@ public class FTSService extends IntentService implements IBookCollection.Listene
     public static final String FTS_BOOKS_FOLDER = "folder";
 
 
-    // An iterator to break the text
-    private BreakIterator mBreakIter  = BreakIterator.getWordInstance();// = BreakIterator.getWordInstance(Locale.CHINA);
-   /*
-        mBreakIter = BreakIterator.getWordInstance(Locale.CHINESE);
-    } */
-
-    private boolean mIndexCreated = false;
-    private long mLastDocID=0;
-
-    private String mDir;
-
-    boolean flagRescanBookStatus = false; // flag indicating request of rescan
     private boolean mMarkIndexTaskCanceled = false; // flag indicating the request of cancellation
 
     FTSIndexDatabase mIndexDatabase;
@@ -122,9 +90,11 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         this.orderedListBookIndex.clear();
 
         try {
-            mIndexDatabase = FTSIndexDatabase.getWrittableIndexDatabase(path);
+            mIndexDatabase = FTSIndexDatabase.getWrittableIndexDatabase(this, path);
 
             if (mIndexDatabase != null) {
+
+                totalParagraphs = 0;
 
                 // add all books file to orderedListBookIndex
                 addBookFilesToIndex(folder);
@@ -145,6 +115,8 @@ public class FTSService extends IntentService implements IBookCollection.Listene
      *  The list of books to be indexed in order
      */
     private List <BookIndexStatus> orderedListBookIndex = new LinkedList<BookIndexStatus>();
+
+    int totalParagraphs;
 
     /**
      * Book collection service provided by FBReader
@@ -241,7 +213,10 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         bkStatus.bookId = book.getId();
         ZLFile file = book.File;
         bkStatus.path = file.getPath();
-        bkStatus.size = getBookParagraphNum (book);
+        bkStatus.size = BookUtil.getBookParagraphNum(book);
+
+        totalParagraphs += bkStatus.size;
+
         bkStatus.modifiedTime = file.lastModified();
 
         bkStatus.indexPos = 0; // Initial value, will be overwritten with the value in database
@@ -272,35 +247,7 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
     }
 
-    private ZLTextModel getModelText (Book book) {
-        BookModel model = null;
 
-        try {
-            FormatPlugin plugin = book.getPlugin();
-
-            if (plugin instanceof BuiltinFormatPlugin) {
-                model = BookModel.createModel(book);
-                Log.v("model class", model.getClass().toString());
-            }
-
-            if (model == null) return null;
-
-            return model.getTextModel();
-        } catch (BookReadingException e) {
-            e.printStackTrace();
-            return null;
-        }
-
-    }
-
-    private int getBookParagraphNum (Book book) {
-        ZLTextModel model = getModelText (book);
-
-        if (model == null)
-            return 0;
-        else
-            return model.getParagraphsNumber();
-    }
 
     // load the book and create index for the book provided in bkStatus
     // Start from last location indicated in bkStatus
@@ -317,7 +264,6 @@ public class FTSService extends IntentService implements IBookCollection.Listene
             ContentValues newPosValues = new ContentValues();
 
             String line;
-            mIndexCreated = true;
 
             System.out.println("indexed:" + bkStatus.indexPos + "; total:" + size +
                     "; progress:" + String.valueOf(progress));
@@ -325,7 +271,7 @@ public class FTSService extends IntentService implements IBookCollection.Listene
 
             Book book = myCollection.getBookById(bkStatus.bookId);
 
-            ZLTextModel modelText = getModelText(book);
+            ZLTextModel modelText = BookUtil.getModelText(book);
 
             if (modelText == null)
                 return;
@@ -337,30 +283,20 @@ public class FTSService extends IntentService implements IBookCollection.Listene
             long bookId = book.getId();
 
             for (int i = bkStatus.indexPos; i < n; i++) {
-                ZLTextParagraph p = modelText.getParagraph(i);
 
-                ZLTextParagraph.EntryIterator iter = p.iterator();
+                String txt = BookUtil.getParagraph(modelText, i);
 
-                while (iter.next()) {
+                if (txt != null && txt.length() > 0) {
+                    Log.v("PARA-", String.valueOf(i));
 
-                    char c[] = iter.getTextData();
-                    int start = iter.getTextOffset();
-                    int len = iter.getTextLength();
+                    mIndexDatabase.insertLineIndex(bookId, i, txt);
 
-                    if (c != null) {
-                        String txt = new String(c, start, len);
-                        Log.v("Text" + i, txt);
+                    progress = (float) i / n;
 
-                        mIndexDatabase.insertLineIndex(bookId, i, txt);
-
-                        progress = (float) i / n;
-
-                        //System.out.println("indexed:" + i + "; total:" + n + "; progress:" + progress);
-                        break;
-                    }
-
-                    if (mMarkIndexTaskCanceled) break;
+                    //System.out.println("indexed:" + i + "; total:" + n + "; progress:" + progress);
                 }
+
+                if (mMarkIndexTaskCanceled) break;
 
                 mIndexDatabase.updateBookIdxPosition(bkStatus.bookId, i+1);
 
@@ -399,19 +335,6 @@ public class FTSService extends IntentService implements IBookCollection.Listene
         }
         return cursor;
     }*/
-
-    // Adapter to convert the text view to parse the HTML annoations
-    public static class HTMLTextCursorAdapter extends SimpleCursorAdapter {
-        HTMLTextCursorAdapter(Context context, int layout, Cursor c,
-                              String[] from, int[] to, int flags) {
-            super (context, layout, c, from, to, flags);
-        }
-
-        @Override
-        public void setViewText (TextView v, String text) {
-            v.setText(Html.fromHtml(text));
-        }
-    }
 
 
 }

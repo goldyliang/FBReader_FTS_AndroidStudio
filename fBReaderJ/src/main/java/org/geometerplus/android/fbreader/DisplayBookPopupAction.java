@@ -60,7 +60,7 @@ class DisplayBookPopupAction extends FBAndroidAction {
 		BaseActivity.runOnUiThread(new Runnable() {
 			public void run() {
 				popup.dismiss();
-				Reader.openBook(book, null, null, null);
+				Reader.openBook(book, null, null, null, null);
 			}
 		});
 	}

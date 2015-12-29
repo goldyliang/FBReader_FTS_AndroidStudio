@@ -7,9 +7,8 @@
 		android:installLocation="auto"
 >
 	<uses-sdk
-			android:minSdkVersion="5"
-			android:maxSdkVersion="10"
-			android:targetSdkVersion="9"
+			android:minSdkVersion="11"
+			android:targetSdkVersion="11"
 	/>
 	<supports-screens android:smallScreens="true" android:normalScreens="true" android:largeScreens="true" android:xlargeScreens="true" android:anyDensity="true"/>
 	<uses-permission android:name="android.permission.INTERNET"/>
@@ -198,7 +197,7 @@
 				<category android:name="android.intent.category.DEFAULT"/>
 			</intent-filter>
 		</activity>
-		<activity android:name="org.geometerplus.android.fbreader.library.FTSSelectActivity" android:launchMode="singleTask" android:theme="@style/FBReader.Activity" android:configChanges="orientation|keyboardHidden|screenSize">
+		<activity android:name="org.geometerplus.android.fbreader.library.FTSSearchActivity" android:launchMode="singleTask" android:theme="@style/FBReader.Activity" android:configChanges="orientation|keyboardHidden|screenSize">
 			<meta-data android:name="android.app.default_searchable" android:value="org.geometerplus.android.fbreader.library.FTSSelectActivity"/>
 			<intent-filter>
 				<action android:name="android.fbreader.action.FTS_SELECT"/>

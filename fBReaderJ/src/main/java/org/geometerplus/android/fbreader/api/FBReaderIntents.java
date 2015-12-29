@@ -22,6 +22,7 @@ package org.geometerplus.android.fbreader.api;
 import android.content.Intent;
 
 import org.geometerplus.fbreader.book.*;
+import org.geometerplus.fbreader.fulltextsearch.SearchHighlighter;
 
 public abstract class FBReaderIntents {
 	public static final String DEFAULT_PACKAGE = "org.geometerplus.zlibrary.ui.android";
@@ -59,6 +60,7 @@ public abstract class FBReaderIntents {
 		String BOOKMARK                 = "fbreader.bookmark";
 		String PLUGIN                   = "fbreader.plugin";
 		String TYPE                     = "fbreader.type";
+		String HIGHLIGHT				= "fbreader.highlight";
 	}
 
 	public static Intent defaultInternalIntent(String action) {
@@ -99,5 +101,17 @@ public abstract class FBReaderIntents {
 
 	public static Bookmark getBookmarkExtra(Intent intent) {
 		return getBookmarkExtra(intent, Key.BOOKMARK);
+	}
+
+	public static void putSearchHilighterExtra(Intent intent, SearchHighlighter highlighter) {
+		intent.putExtra (Key.HIGHLIGHT, SerializerUtil.serialize(highlighter));
+	}
+
+	public static SearchHighlighter getSearchHilighterExtra(Intent intent, String key) {
+		return SerializerUtil.deserializeSearchHighlighter(intent.getStringExtra(key));
+	}
+
+	public static SearchHighlighter getSearchHilighterExtra(Intent intent) {
+		return getSearchHilighterExtra(intent, Key.HIGHLIGHT);
 	}
 }

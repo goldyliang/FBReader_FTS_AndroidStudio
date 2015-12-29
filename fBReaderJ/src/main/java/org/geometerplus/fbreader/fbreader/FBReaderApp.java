@@ -21,13 +21,17 @@ package org.geometerplus.fbreader.fbreader;
 
 import java.util.*;
 
+import org.geometerplus.fbreader.fulltextsearch.SearchHighlighter;
 import org.geometerplus.zlibrary.core.application.*;
 import org.geometerplus.zlibrary.core.drm.FileEncryptionInfo;
 import org.geometerplus.zlibrary.core.drm.EncryptionMethod;
 import org.geometerplus.zlibrary.core.util.*;
 
 import org.geometerplus.zlibrary.text.hyphenation.ZLTextHyphenator;
+import org.geometerplus.zlibrary.text.model.ZLTextMark;
 import org.geometerplus.zlibrary.text.model.ZLTextModel;
+import org.geometerplus.zlibrary.text.model.ZLTextParagraph;
+import org.geometerplus.zlibrary.text.model.ZLTextPlainModel;
 import org.geometerplus.zlibrary.text.view.*;
 
 import org.geometerplus.fbreader.book.*;
@@ -138,7 +142,7 @@ public final class FBReaderApp extends ZLApplication {
 	}
 
 	public void openHelpBook() {
-		openBook(Collection.getBookByFile(BookUtil.getHelpFile()), null, null, null);
+		openBook(Collection.getBookByFile(BookUtil.getHelpFile()), null, null, null, null);
 	}
 
 	public Book getCurrentServerBook(Notifier notifier) {
@@ -159,9 +163,11 @@ public final class FBReaderApp extends ZLApplication {
 		return null;
 	}
 
-	public void openBook(Book book, final Bookmark bookmark, Runnable postAction, Notifier notifier) {
+	public void openBook(Book book, final Bookmark bookmark, final SearchHighlighter highlighter,
+						 Runnable postAction, Notifier notifier) {
 		if (Model != null) {
-			if (book == null || bookmark == null && book.File.equals(Model.Book.File)) {
+			if (book == null ||
+				bookmark == null && highlighter == null && book.File.equals(Model.Book.File)) {
 				return;
 			}
 		}
@@ -185,7 +191,7 @@ public final class FBReaderApp extends ZLApplication {
 		final SynchronousExecutor executor = createExecutor("loadingBook");
 		executor.execute(new Runnable() {
 			public void run() {
-				openBookInternal(bookToOpen, bookmark, false);
+				openBookInternal(bookToOpen, bookmark, highlighter, false);
 			}
 		}, postAction);
 	}
@@ -196,7 +202,7 @@ public final class FBReaderApp extends ZLApplication {
 			final SynchronousExecutor executor = createExecutor("loadingBook");
 			executor.execute(new Runnable() {
 				public void run() {
-					openBookInternal(book, null, true);
+					openBookInternal(book, null, null, true);
 				}
 			}, null);
 		}
@@ -285,9 +291,17 @@ public final class FBReaderApp extends ZLApplication {
 		}
 	}
 
-	private synchronized void openBookInternal(Book book, Bookmark bookmark, boolean force) {
+	private synchronized void openBookInternal(Book book,
+											   Bookmark bookmark,
+											   SearchHighlighter highlighter,
+											   boolean force) {
+
 		if (!force && Model != null && book.equals(Model.Book)) {
-			if (bookmark != null) {
+			if (highlighter != null) {
+				// Go to the specified paragraph
+				// and highlights the searched words
+				gotoSearchHighlighted(highlighter);
+			} else if (bookmark != null) {
 				gotoBookmark(bookmark, false);
 			}
 			return;
@@ -333,11 +347,17 @@ public final class FBReaderApp extends ZLApplication {
 			BookTextView.setModel(Model.getTextModel());
 			setBookmarkHighlightings(BookTextView, null);
 			gotoStoredPosition();
-			if (bookmark == null) {
+
+			if (highlighter != null) {
+				// Go to the specified paragraph
+				// and highlights the searched words
+				gotoSearchHighlighted(highlighter);
+			} else if (bookmark == null) {
 				setView(BookTextView);
 			} else {
 				gotoBookmark(bookmark, false);
 			}
+
 			Collection.addToRecentlyOpened(book);
 			final StringBuilder title = new StringBuilder(book.getTitle());
 			if (!book.authors().isEmpty()) {
@@ -436,6 +456,59 @@ public final class FBReaderApp extends ZLApplication {
 		storePosition();
 	}
 
+	private void gotoSearchHighlighted (SearchHighlighter highlighter) {
+
+		int para = highlighter.getParaNum();
+		List <String> words = highlighter.getPhases();
+
+		BookTextView.gotoPosition(para, 0, 0);
+
+		ZLTextModel model = BookTextView.getModel();
+
+		ZLTextParagraph paragraph = model.getParagraph(para);
+
+		ZLTextParagraph.EntryIterator iter = paragraph.iterator();
+
+		ArrayList<ZLTextMark> myMarks = new ArrayList<ZLTextMark>();
+
+		int offset = 0;
+
+		while (iter.next()) {
+			if (iter.getType() == ZLTextParagraph.Entry.TEXT) {
+
+				char[] data = iter.getTextData();
+				int st = iter.getTextOffset();
+				int len = iter.getTextLength();
+
+				String text = new String(data, st, len);
+
+				for (String word: words) {
+
+					ZLSearchPattern pattern = new ZLSearchPattern(word, true);
+
+					for (ZLSearchUtil.Result res = ZLSearchUtil.find(data, st, len, pattern);
+						 res != null;
+						 res = ZLSearchUtil.find(data, st, len, pattern, res.Start + 1)) {
+
+						myMarks.add(new ZLTextMark(para, offset + res.Start, res.Length));
+					}
+
+				}
+
+				offset += len;
+
+			}
+		}
+
+		((ZLTextPlainModel)model).setMarks(myMarks);
+
+		BookTextView.clearCaches();
+		getViewWidget().reset();
+		getViewWidget().repaint();
+
+		storePosition();
+	}
+
 	public void showBookTextView() {
 		setView(BookTextView);
 	}
@@ -493,7 +566,7 @@ public final class FBReaderApp extends ZLApplication {
 		if (openOtherBook && SyncOptions.ChangeCurrentBook.getValue()) {
 			final Book fromServer = getCurrentServerBook(notifier);
 			if (fromServer != null && !fromServer.equals(Collection.getRecentBook(0))) {
-				openBook(fromServer, null, null, notifier);
+				openBook(fromServer, null, null, null, notifier);
 				return;
 			}
 		}
@@ -568,7 +641,7 @@ public final class FBReaderApp extends ZLApplication {
 				runAction(ActionCode.SHOW_NETWORK_LIBRARY);
 				break;
 			case previousBook:
-				openBook(Collection.getRecentBook(1), null, null, null);
+				openBook(Collection.getRecentBook(1), null, null, null, null);
 				break;
 			case returnTo:
 				Collection.deleteBookmark(bookmark);

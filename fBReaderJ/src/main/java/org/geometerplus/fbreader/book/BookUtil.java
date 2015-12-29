@@ -19,6 +19,8 @@
 
 package org.geometerplus.fbreader.book;
 
+import android.util.Log;
+
 import java.io.InputStream;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
@@ -26,12 +28,16 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
+import org.geometerplus.fbreader.bookmodel.BookModel;
+import org.geometerplus.fbreader.formats.BuiltinFormatPlugin;
 import org.geometerplus.zlibrary.core.filesystem.*;
 import org.geometerplus.zlibrary.core.image.ZLImage;
 
 import org.geometerplus.fbreader.bookmodel.BookReadingException;
 import org.geometerplus.fbreader.formats.FormatPlugin;
 import org.geometerplus.fbreader.formats.PluginCollection;
+import org.geometerplus.zlibrary.text.model.ZLTextModel;
+import org.geometerplus.zlibrary.text.model.ZLTextParagraph;
 
 public abstract class BookUtil {
 	private static final WeakReference<ZLImage> NULL_IMAGE = new WeakReference<ZLImage>(null);
@@ -128,5 +134,58 @@ public abstract class BookUtil {
 				}
 			}
 		}
+	}
+
+	public static ZLTextModel getModelText (Book book) {
+		BookModel model = null;
+
+		try {
+			FormatPlugin plugin = book.getPlugin();
+
+			if (plugin instanceof BuiltinFormatPlugin) {
+				model = BookModel.createModel(book);
+				Log.v("model class", model.getClass().toString());
+			}
+
+			if (model == null) return null;
+
+			return model.getTextModel();
+		} catch (BookReadingException e) {
+			e.printStackTrace();
+			return null;
+		}
+
+	}
+
+	public static int getBookParagraphNum (Book book) {
+		ZLTextModel model = getModelText(book);
+
+		if (model == null)
+			return 0;
+		else
+			return model.getParagraphsNumber();
+	}
+
+	public static String getParagraph (ZLTextModel modelText, int i) {
+
+		ZLTextParagraph p = modelText.getParagraph(i);
+
+		ZLTextParagraph.EntryIterator iter = p.iterator();
+
+		while (iter.next())
+			if (iter.getType() == ZLTextParagraph.Entry.TEXT) {
+
+				char c[] = iter.getTextData();
+
+				if (c != null) {
+					int start = iter.getTextOffset();
+					int len = iter.getTextLength();
+					String txt = new String(c, start, len);
+
+					return txt;
+				}
+			}
+
+		return null;
 	}
 }

@@ -1,53 +1,44 @@
-package org.geometerplus.android.fbreader.library;
+package org.geometerplus.fbreader.fulltextsearch;
 
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.Intent;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.provider.BaseColumns;
-import android.text.Html;
 import android.util.Log;
-import android.widget.SimpleCursorAdapter;
-import android.widget.TextView;
 
 import org.geometerplus.android.fbreader.libraryService.BookCollectionShadow;
 import org.geometerplus.fbreader.book.Book;
 import org.geometerplus.fbreader.book.BookEvent;
+import org.geometerplus.fbreader.book.BookUtil;
 import org.geometerplus.fbreader.book.IBookCollection;
 import org.geometerplus.fbreader.bookmodel.BookModel;
 import org.geometerplus.fbreader.bookmodel.BookReadingException;
-import org.geometerplus.fbreader.formats.BuiltinFormatPlugin;
-import org.geometerplus.fbreader.formats.FormatPlugin;
-import org.geometerplus.fbreader.fulltextsearch.SDCardSQLiteOpenHelper;
 import org.geometerplus.fbreader.library.RootTree;
-import org.geometerplus.zlibrary.core.filesystem.ZLFile;
 import org.geometerplus.zlibrary.text.model.ZLTextModel;
-import org.geometerplus.zlibrary.text.model.ZLTextParagraph;
 
 import java.io.File;
 import java.text.BreakIterator;
 import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 
 /**
  * Created by gordon on 12/27/15.
  */
-public class FTSIndexDatabase {
+public class FTSIndexDatabase  implements IBookCollection.Listener {
 
     private static final String TAG = "FTSService";
 
     private static final String COL_LOCATION = "LOCATION";
-    private static final String COL_TEXT = "TEXT";
     private static final String COL_DOCID = "docid";
+
+    private static final String COL_TEXT = "TEXT";
     private static final String COL_BOOKTITLE = "TITLE";
 
 
-    private static final String COL_BOOKID = "ID";
+    private  static final String COL_BOOKID = "ID";
     private static final String COL_FILEPATH = "PATH";
     private static final String COL_FILESIZE = "SIZE";
     private static final String COL_MODIFIED_TIME = "MODIFIED";
@@ -97,12 +88,10 @@ public class FTSIndexDatabase {
     private DatabaseOpenHelper mDatabaseOpenHelper;
     ;
 
-    private static final String FORMAT_HIGHTLIGHT_START = "<font color='red'>";
-    private static final String FORMAT_HIGHTLIGHT_END = "</font>";
+
     private static final String DATABASE_FILE = "index.db";
 
-    // An iterator to break the text
-    private BreakIterator mBreakIter  = BreakIterator.getWordInstance();// = BreakIterator.getWordInstance(Locale.CHINA);
+
    /*
         mBreakIter = BreakIterator.getWordInstance(Locale.CHINESE);
     } */
@@ -114,7 +103,18 @@ public class FTSIndexDatabase {
 
     private String mDir;
 
+    private final BookCollectionShadow myCollection = new BookCollectionShadow();
+    private volatile RootTree myRootTree;
 
+    @Override
+    public void onBookEvent(BookEvent event, Book book) {
+
+    }
+
+    @Override
+    public void onBuildEvent(IBookCollection.Status status) {
+
+    }
 
 
     /**
@@ -139,7 +139,7 @@ public class FTSIndexDatabase {
 
     private FTSIndexDatabase () {}
 
-    private FTSIndexDatabase(String path, boolean writtable) {
+    private FTSIndexDatabase(Context context, String path, boolean writtable) {
 
         File folder;
 
@@ -148,14 +148,34 @@ public class FTSIndexDatabase {
         if (path != null && (folder = new File(path)) != null) {
             mDatabaseIndexing = mDatabaseOpenHelper.getWritableDatabase();
         }
+
+        /* Bind to library service, and once bound, initialize local fields */
+        myCollection.bindToService(context, new Runnable() {
+            public void run() {
+                myRootTree = new RootTree(myCollection);
+                myCollection.addListener(FTSIndexDatabase.this);
+            }
+        });
     }
 
-    public static FTSIndexDatabase getWrittableIndexDatabase (String path) {
-        return new FTSIndexDatabase(path, true);
+    public static FTSIndexDatabase getWrittableIndexDatabase (Context context, String path) {
+        return new FTSIndexDatabase(context, path, true);
     }
 
-    public static FTSIndexDatabase getReadOnlyIndexDatabase (String path) {
-        return new FTSIndexDatabase(path, true);
+    public static FTSIndexDatabase getReadOnlyIndexDatabase (Context context, String path) {
+        return new FTSIndexDatabase(context, path, true);
+    }
+
+
+    /**
+     * Clear the root tree of book library
+     */
+    private synchronized void deleteRootTree() {
+        if (myRootTree != null) {
+            myCollection.removeListener(this);
+            myCollection.unbind();
+            myRootTree = null;
+        }
     }
 
 
@@ -222,50 +242,6 @@ public class FTSIndexDatabase {
 
     }
 
-    /* Retrieve all words from a text */
-    private synchronized String getWordsFromText(String txt, List<String> words) {
-        mBreakIter.setText(txt);
-        int start = mBreakIter.first();
-        int end = mBreakIter.next();
-
-        StringBuffer buf = new StringBuffer();
-        if (words!=null) words.clear();
-
-        while (end != BreakIterator.DONE) {
-            String word = txt.substring(start,end).trim();
-            if (word.length()!=0) {
-                if (words!=null) words.add(word);
-                buf.append(txt.substring(start, end));
-                buf.append(" ");
-            }
-            start = end;
-            end = mBreakIter.next();
-        }
-
-        if (buf.length() > 0)
-            buf.deleteCharAt(buf.length()-1);
-
-        return buf.toString();
-    }
-
-    /* Retrieve an HTML annotated text, highlighting all words from the list of words
-     */
-    private static String getHighlightedText (String txt, List<String> words) {
-        StringBuffer buf = new StringBuffer(txt);
-
-        for (String word: words) {
-            int i = 0;
-            while ((i = buf.indexOf(word, i)) >= 0) {
-                String formated_word = FORMAT_HIGHTLIGHT_START + word + FORMAT_HIGHTLIGHT_END;
-                buf.replace(i, i + word.length(), formated_word);
-                i = i + formated_word.length();
-            }
-        }
-
-        return new String (buf);
-    }
-
-
     /* Database helper to create/open and manager the indexing database
      */
     private class DatabaseOpenHelper extends SDCardSQLiteOpenHelper {
@@ -325,7 +301,7 @@ public class FTSIndexDatabase {
 
         if (line == null || line.length()==0) return true;
 
-        String txtToAdd = getWordsFromText(line, null);
+        String txtToAdd = TextUtil.getWordsFromText(line, null);
 
         if (txtToAdd == null || txtToAdd.length()==0) return true;
 
@@ -366,43 +342,43 @@ public class FTSIndexDatabase {
     }
 
 
+    public static final String FTS_RESULT_COL_BOOKID = COL_BOOKID;
+    public static final String FTS_RESULT_COL_TITLE = COL_BOOKTITLE;
+ //   public static final String FTS_RESULT_COL_ORIG_TEXT = COL_TEXT;
+    public static final String FTS_RESULT_COL_FORMATTED_TEXT = "fts_formatted";
+    public static final String FTS_RESULT_COL_LOCATION = COL_LOCATION;
+
     private static final String[] COLUMNS =
             new String [] {
                     BaseColumns._ID,
-                    COL_BOOKTITLE,
-                    COL_TEXT};
+                    FTS_RESULT_COL_BOOKID,
+                    FTS_RESULT_COL_TITLE,
+ //                   FTS_RESULT_COL_ORIG_TEXT,
+                    FTS_RESULT_COL_FORMATTED_TEXT,
+                    FTS_RESULT_COL_LOCATION};
 
-
-    private static final String SELECTION = COL_TEXT + " MATCH ?";
-
-    private static final String[] PROJECTION = new String[] {
-            //           COL_DOCID + " AS " + BaseColumns._ID ,
-            //           COL_FILEID,
-            COL_FILEPATH,
-            COL_LOCATION
-            // COL_DOCID + " AS " + COL_LOCATION
-    };
 
     private static final String RAW_SEARCH_SQL =
-            "SELECT F." + COL_FILEPATH + ", L." + COL_LOCATION
+            "SELECT BOOK." + COL_BOOKID + ", BOOK." + COL_FILEPATH + ", FTS." + COL_LOCATION
                     + " FROM " + FTS_VIRTUAL_TABLE + " AS FTS"
-                    + " INNER JOIN " + FTS_CONTENT_TABLE + " AS L"
-                    + " INNER JOIN " + BOOK_STATUS_TABLE + " AS F"
-                    + " ON FTS." + COL_DOCID + "=" + "L." + COL_ROWID
-                    + " AND L." + COL_BOOKID + "=" + "F." + COL_ROWID
+                    + " NATURAL JOIN " + BOOK_STATUS_TABLE + " AS BOOK"
                     + " WHERE " + COL_TEXT + " MATCH ?";
 
+    // For client to retrieve the book from the search result
+    public Book getBookById( long id) {
+        return myCollection.getBookById(id);
+    }
 
     /* Performe a full-text search and return the cursor of results
      */
-    private Cursor searchText (String query) {
+    public Cursor searchText (String query) {
 
         if (query == null) return null;
 
-        ArrayList<String> words = new ArrayList<String> ();
+        List<String> phases = new ArrayList<String> ();
 
         String[] selectionArgs = new String[]{// query };
-                getWordsFromText(query, words)}; //todo deal with "", AND, OR etc
+                TextUtil.getSearchPhases(query, phases)}; //todo deal with "", AND, OR etc
 
         SQLiteQueryBuilder builder = new SQLiteQueryBuilder();
         builder.setTables(FTS_VIRTUAL_TABLE);
@@ -412,57 +388,74 @@ public class FTSIndexDatabase {
         synchronized (this) {
             SQLiteDatabase database = mDatabaseOpenHelper.getReadableDatabase();
 
-            if (database.isOpen()) {
-//                cursor = builder.query(mDatabaseOpenHelper.getReadableDatabase(),
-//                      PROJECTION, SELECTION, selectionArgs, null, null, null);
-                cursor = database.rawQuery(
-                        RAW_SEARCH_SQL, selectionArgs);
+            if (database.isOpen())
+                try {
 
-                database.close();
-            }
-        }
+                    cursor = database.rawQuery(
+                            RAW_SEARCH_SQL, selectionArgs);
 
-        if (cursor == null) {
-            return null;
-        }  else {
-            // Build a cursor, adding the real Text
-            MatrixCursor cursor_new = new MatrixCursor(COLUMNS);
+                    if (cursor == null) {
+                        return null;
+                    } else {
+                        // Build a cursor, adding the real Text
+                        MatrixCursor cursor_new = new MatrixCursor(COLUMNS);
 
-            cursor.moveToFirst();
+                        cursor.moveToFirst();
 
-            Object[] row = new Object[3];
+                        Object[] row = new Object[COLUMNS.length];
 
-            int resID=0;
-            while (!cursor.isAfterLast()) {
-                row[0] = ++resID;//cursor.getLong(0);  // ID
-                String path = cursor.getString(0);
-                long pos = cursor.getLong(1);  // Location
+                        if (myCollection == null)
+                            return null; // Collection not bound yet
 
-                int i = path.lastIndexOf('/');
-                int j = path.lastIndexOf('.');
+                        int resID = 0;
+                        while (resID < 10 && !cursor.isAfterLast()) {
+                            row[0] = ++resID;//cursor.getLong(0);  // ID
+                            String path = cursor.getString(1);
+                            int pos = cursor.getInt(2);  // Location
 
-                if (i>0 & j>i)
-                    row[1] = path.substring(i+1,j);
-                else if (i>0 && j<0)
-                    row[1] = path.substring(i+1);
-                else
-                    row[1] = path;
+                            long bookId = cursor.getLong(0);
 
-                String para = null; //getTextFromFile(path, pos);
+                            Book book = myCollection.getBookById(bookId);
+                            //Book book2 = myCollection.getBookByFile(path);
 
-                if (para!=null) {
-                    String formatedTxt = getHighlightedText(para, words);
+                            //if (book2!=null) book = book2;
 
-                    row[2] = formatedTxt;
+                            if (book==null) continue;
 
-                    cursor_new.addRow(row);
+                            row[2] = book.getTitle();
+                            row[1] = bookId;
+                            row[4] = pos;
+
+                            try {
+                                ZLTextModel model = BookModel.createModel(book).getTextModel();
+                                String para = BookUtil.getParagraph(model, pos);
+
+                                if (para != null) {
+                                    String formatedTxt = TextUtil.getHtmlHighlightedText(para, phases);
+
+                                    row[3] = formatedTxt;
+                                    cursor_new.addRow(row);
+
+                                }
+
+
+                            } catch (BookReadingException e) {
+                                e.printStackTrace();
+                            }
+
+
+                            cursor.moveToNext();
+                        }
+
+                        return cursor_new;
+                    }
+                } finally {
+                    database.close();
                 }
-
-                cursor.moveToNext();
-            }
-
-            return cursor_new;
+            else
+                return null;
         }
+
     }
 
  /*   public Cursor getWordMatches(String query, String[] columns) {
@@ -506,8 +499,7 @@ public class FTSIndexDatabase {
 
     public void closeDatabase() {
 
-        synchronized (this) {
-            mDatabaseOpenHelper.close();
-        }
+        deleteRootTree();
+        mDatabaseOpenHelper.close();
     }
 }

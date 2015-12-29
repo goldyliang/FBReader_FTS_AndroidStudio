@@ -33,6 +33,8 @@ import org.geometerplus.zlibrary.core.util.RationalNumber;
 import org.geometerplus.zlibrary.core.util.ZLColor;
 
 import org.geometerplus.zlibrary.text.view.ZLTextPosition;
+import org.geometerplus.fbreader.fulltextsearch.SearchHighlighter;
+
 
 class XMLSerializer extends AbstractSerializer {
 	private StringBuilder builder() {
@@ -263,6 +265,40 @@ class XMLSerializer extends AbstractSerializer {
 			return null;
 		}
 	}
+
+	@Override
+	public String serialize( SearchHighlighter highlighter) {
+		final StringBuilder buffer = builder();
+
+		appendTag(buffer, "highlight", false,
+				"paragraph", String.valueOf(highlighter.getParaNum()));
+
+		StringBuilder searchTxt = new StringBuilder();
+
+		for (String word : highlighter.getPhases())
+			searchTxt.append(word + ";");
+
+		appendTagWithContent(buffer, "words", searchTxt.toString());
+
+		closeTag (buffer, "highlight");
+
+		return buffer.toString();
+	}
+
+	@Override
+	public SearchHighlighter deserializeSearchHighlight (String xml) {
+		try {
+			final SearchHighlighterDeserializer deserializer =
+					new SearchHighlighterDeserializer();
+			Xml.parse(xml, deserializer);
+			return deserializer.getHighlighter();
+		} catch (SAXException e) {
+			System.err.println(xml);
+			e.printStackTrace();
+			return null;
+		}
+	}
+
 
 	@Override
 	public String serialize(Bookmark bookmark) {
@@ -1029,6 +1065,95 @@ class XMLSerializer extends AbstractSerializer {
 		public void characters(char[] ch, int start, int length) {
 			if (myState == State.READ_TEXT) {
 				myText.append(ch, start, length);
+			}
+		}
+	}
+
+	private static final class SearchHighlighterDeserializer extends DefaultHandler {
+		private static enum State {
+			READ_NOTHING,
+			READ_HIGHLIGHT,
+			READ_WORDS
+		}
+
+		private State myState = State.READ_NOTHING;
+		private SearchHighlighter mySearchHighlighter;
+
+		private int paraNum = -1;
+		private StringBuffer wordsText;
+		private List<String> words;
+
+		public SearchHighlighter getHighlighter() {
+			return myState == State.READ_NOTHING ? mySearchHighlighter : null;
+		}
+
+		@Override
+		public void startDocument() {
+			mySearchHighlighter = null;
+
+			paraNum = -1;
+			words = null;
+			wordsText = new StringBuffer();
+
+			myState = State.READ_NOTHING;
+		}
+
+		@Override
+		public void endDocument() {
+			if (paraNum < 0) {
+				return;
+			}
+			mySearchHighlighter = new SearchHighlighter(words, paraNum);
+		}
+
+		@Override
+		public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
+			switch (myState) {
+				case READ_NOTHING:
+					if (!"highlight".equals(localName)) {
+						throw new SAXException("Unexpected tag " + localName);
+					}
+					paraNum = parseInt(attributes.getValue("paragraph"));
+					myState = State.READ_HIGHLIGHT;
+					break;
+				case READ_HIGHLIGHT:
+					if (!"words".equals(localName)) {
+						throw new SAXException("Unexpected tab " + localName);
+					}
+					myState = State.READ_WORDS;
+					break;
+			}
+		}
+
+		@Override
+		public void endElement(String uri, String localName, String qName) throws SAXException {
+			switch (myState) {
+
+				case READ_HIGHLIGHT:
+					if ("highlight".equals(localName))
+						myState = State.READ_WORDS;
+					else
+						throw new SAXException("Unexpected closing tag " + localName);
+					break;
+				case READ_WORDS:
+					if ("words".equals(localName)) {
+
+						String [] w = wordsText.toString().split(";");
+						words = Arrays.asList(w);
+
+						myState = State.READ_NOTHING;
+					}
+					break;
+			}
+		}
+
+		@Override
+		public void characters(char[] ch, int start, int length) {
+			if (myState == State.READ_WORDS) {
+				String txt = new String (ch, start, length);
+
+				wordsText.append(ch, start,length);
+
 			}
 		}
 	}

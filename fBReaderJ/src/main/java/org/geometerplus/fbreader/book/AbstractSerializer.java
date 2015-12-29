@@ -19,6 +19,8 @@
 
 package org.geometerplus.fbreader.book;
 
+import org.geometerplus.fbreader.fulltextsearch.SearchHighlighter;
+
 abstract class AbstractSerializer {
 	public abstract String serialize(BookQuery query);
 	public abstract BookQuery deserializeBookQuery(String data);
@@ -34,4 +36,8 @@ abstract class AbstractSerializer {
 
 	public abstract String serialize(HighlightingStyle style);
 	public abstract HighlightingStyle deserializeStyle(String data);
+
+	public abstract String serialize( SearchHighlighter highlighter);
+	public abstract SearchHighlighter deserializeSearchHighlight (String data);
+
 }

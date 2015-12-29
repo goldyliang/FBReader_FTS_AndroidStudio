@@ -4,7 +4,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 
 import org.geometerplus.android.fbreader.api.FBReaderIntents;
-import org.geometerplus.android.fbreader.library.FTSSelectActivity;
+import org.geometerplus.android.fbreader.library.FTSSearchActivity;
 import org.geometerplus.android.util.PackageUtil;
 
 import org.geometerplus.fbreader.fbreader.FBReaderApp;
@@ -25,7 +25,7 @@ public class FullTextSearchAction extends FBAndroidAction {
                 new Intent(FBReaderIntents.Action.EXTERNAL_LIBRARY);
         final Intent internalIntent =
                 new Intent(BaseActivity.getApplicationContext(),// LibraryActivity.class);
-                        FTSSelectActivity.class);
+                        FTSSearchActivity.class);
         if (PackageUtil.canBeStarted(BaseActivity, externalIntent, true)) {
             try {
                 startFTSActivity(externalIntent);

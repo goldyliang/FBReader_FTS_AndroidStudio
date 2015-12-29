@@ -19,6 +19,8 @@
 
 package org.geometerplus.fbreader.book;
 
+import org.geometerplus.fbreader.fulltextsearch.SearchHighlighter;
+
 import java.util.*;
 
 public abstract class SerializerUtil {
@@ -45,6 +47,15 @@ public abstract class SerializerUtil {
 
 	public static String serialize(Book book) {
 		return book != null ? defaultSerializer.serialize(book) : null;
+	}
+
+	public static String serialize(SearchHighlighter highlighter) {
+		return highlighter != null ? defaultSerializer.serialize(highlighter) : null;
+	}
+
+
+	public static SearchHighlighter deserializeSearchHighlighter(String xml) {
+		return xml != null ? defaultSerializer.deserializeSearchHighlight(xml) : null;
 	}
 
 	public static Book deserializeBook(String xml) {
@@ -77,6 +88,8 @@ public abstract class SerializerUtil {
 	public static Bookmark deserializeBookmark(String xml) {
 		return xml != null ? defaultSerializer.deserializeBookmark(xml) : null;
 	}
+
+
 
 	public static List<String> serializeBookmarkList(List<Bookmark> bookmarks) {
 		final List<String> serialized = new ArrayList<String>(bookmarks.size());

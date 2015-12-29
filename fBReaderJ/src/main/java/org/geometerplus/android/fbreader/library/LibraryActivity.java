@@ -24,7 +24,6 @@ import java.util.*;
 import android.app.AlertDialog;
 import android.app.SearchManager;
 import android.content.*;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -34,7 +33,7 @@ import android.widget.ListView;
 
 import org.geometerplus.fbreader.Paths;
 import org.geometerplus.fbreader.fulltextsearch.FTSService;
-import org.geometerplus.zlibrary.core.filesystem.ZLFile;
+import org.geometerplus.fbreader.fulltextsearch.TextUtil;
 import org.geometerplus.zlibrary.core.options.ZLStringOption;
 import org.geometerplus.zlibrary.core.resources.ZLResource;
 
@@ -70,7 +69,17 @@ public class LibraryActivity extends TreeActivity<LibraryTree> implements MenuIt
 
 		deleteRootTree();
 
-		Log.d("HERE HERE" , "onCreate()");
+		Log.d("HERE HERE", "onCreate()");
+
+		String test = "耶稣";
+		List <String> phases = new ArrayList<String>();
+		String out = TextUtil.getSearchPhases(test, phases);
+
+		test = "耶稣 来到世上";
+		out = TextUtil.getSearchPhases(test, phases);
+
+		test = "约8:32 约 翰 伊丽莎白,";
+		out = TextUtil.getSearchPhases(test, phases);
 
 		myCollection.bindToService(this, new Runnable() {
 			public void run() {
@@ -379,8 +388,14 @@ public class LibraryActivity extends TreeActivity<LibraryTree> implements MenuIt
 
 	public boolean onMenuItemClick(MenuItem item) {
 		switch (item.getItemId()) {
-			case OptionsItemId.Search:
-				return onSearchRequested();
+			case OptionsItemId.Search: {
+				// TODO: temp
+				Intent intent = new Intent (this, FTSSearchActivity.class);
+
+				startActivity(intent);
+
+				//return onSearchRequested();
+			}
 			case OptionsItemId.Rescan:
 				if (myCollection.status().IsCompleted) {
 					myCollection.reset(true);

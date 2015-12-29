@@ -10,8 +10,8 @@ android {
 
     defaultConfig {
         applicationId "org.geometerplus.zlibrary.ui.android"
-        minSdkVersion 5
-        targetSdkVersion 9
+        minSdkVersion 11
+        targetSdkVersion 11
 
 
         ndk {
